@@ -1,0 +1,14 @@
+{
+  "name": "rpg-bot",
+  "version": "1.0.0",
+  "description": "RPG Bot Discord",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.5",
+    "quick.db": "^9.1.7"
+  }
+}
