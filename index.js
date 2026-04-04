@@ -17,22 +17,23 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMessageReactions
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.DirectMessages
   ]
 });
 
 const prefix = "!";
 
-// =======================
-// ⏱️ COOLDOWN
-// =======================
+// ===== CONFIG =====
 const HUNT_CD = 180000;
 const DAILY_CD = 86400000;
 const WEEKLY_CD = 604800000;
+const CHAT_CD = 10000;
+const CHAT_LIMIT = 100;
+const REACT_CD = 5000;
+const VOICE_CD = 60000;
 
-// =======================
-// 🐾 HEWAN
-// =======================
+// ===== HEWAN =====
 const animals = [
   { name: "🐱 Kucing", value: 50, rarity: "Common", image: "https://i.imgur.com/1XKQ9Zp.png" },
   { name: "🐶 Anjing", value: 50, rarity: "Common", image: "https://i.imgur.com/Z8pQZ6F.png" },
@@ -44,10 +45,9 @@ const animals = [
   { name: "🦄 Unicorn", value: 600, rarity: "Legendary", image: "https://i.imgur.com/6XwQZ9M.png" }
 ];
 
-// =======================
-// 🎖️ RANK
-// =======================
+// ===== RANK =====
 function rank(p) {
+  if (p >= 10000) return "👑 Sultan";
   if (p >= 5000) return "💎 Legend";
   if (p >= 3000) return "🔥 Elite";
   if (p >= 1500) return "⭐ Pro";
@@ -55,111 +55,113 @@ function rank(p) {
   return "🐣 Beginner";
 }
 
-// =======================
-// 💬 CHAT
-// =======================
-client.on("messageCreate", (msg) => {
+// ===== MESSAGE =====
+client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
   const id = msg.author.id;
 
-  db.add(id, "points", 5);
-  db.add(id, "chat", 1);
+  // ===== REMINDER CHECK =====
+  const now = Date.now();
 
-  if (msg.attachments.size > 0) db.add(id, "points", 10);
-  if (msg.reference) db.add(id, "points", 5);
-});
+  const sendReminder = async (text) => {
+    try {
+      await msg.author.send(text);
+    } catch {
+      msg.reply(text);
+    }
+  };
 
-// =======================
-// 🔊 VOICE
-// =======================
-client.on("voiceStateUpdate", (o, n) => {
-  if (!n.channel) return;
-
-  const members = n.channel.members.filter(m => !m.user.bot);
-  if (members.size < 2) return;
-
-  members.forEach(m => {
-    db.add(m.id, "points", 2);
-    db.add(m.id, "voice", 1);
-  });
-});
-
-// =======================
-// 🎉 REACTION
-// =======================
-client.on("messageReactionAdd", (r, user) => {
-  if (user.bot) return;
-  if (r.message.channel.name === "announcement") {
-    db.add(user.id, "points", 5);
+  if (db.get(id, "daily_remind") && now >= db.get(id, "daily_remind")) {
+    await sendReminder("🎁 Daily kamu sudah bisa di claim!");
+    db.set(id, "daily_remind", 0);
   }
-});
 
-// =======================
-// 🎮 COMMAND
-// =======================
-client.on("messageCreate", async (msg) => {
+  if (db.get(id, "weekly_remind") && now >= db.get(id, "weekly_remind")) {
+    await sendReminder("🎉 Weekly kamu sudah bisa di claim!");
+    db.set(id, "weekly_remind", 0);
+  }
+
+  // ===== CHAT ANTI SPAM =====
+  const lastChat = db.get(id, "lastChat");
+  const today = new Date().toDateString();
+
+  if (db.get(id, "chatDate") !== today) {
+    db.set(id, "chatDaily", 0);
+    db.set(id, "chatDate", today);
+  }
+
+  if (Date.now() - lastChat > CHAT_CD && db.get(id, "chatDaily") < CHAT_LIMIT) {
+    db.set(id, "lastChat", Date.now());
+    db.add(id, "points", 5);
+    db.add(id, "chat", 1);
+    db.add(id, "chatDaily", 1);
+
+    if (msg.attachments.size > 0) db.add(id, "points", 10);
+    if (msg.reference) db.add(id, "points", 5);
+  }
+
   if (!msg.content.startsWith(prefix)) return;
 
-  const args = msg.content.slice(1).split(" ");
-  const cmd = args[0].toLowerCase();
-  const id = msg.author.id;
+  const args = msg.content.slice(1).trim().split(/ +/);
+  const cmd = args.shift().toLowerCase();
 
-  // ================= DAILY =================
+  const guildIcon = msg.guild?.iconURL({ dynamic: true }) || null;
+
+  // ===== DAILY =====
   if (cmd === "daily") {
-    const last = db.get(id, "daily");
+    const last = db.get(id, "daily") || 0;
 
-    if (Date.now() - last < DAILY_CD) {
-      const embed = new EmbedBuilder()
-        .setTitle("⏳ Daily Sudah Diambil");
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("daily_btn").setLabel("⏰ Ingatkan Saya").setStyle(ButtonStyle.Primary)
+    );
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("daily_remind")
-          .setLabel("⏰ Ingatkan Saya")
-          .setStyle(ButtonStyle.Primary)
-      );
-
-      return msg.reply({ embeds: [embed], components: [row] });
+    if (now - last < DAILY_CD) {
+      return msg.reply({
+        embeds: [new EmbedBuilder().setColor("#57F287").setAuthor({ name: "Daily Claimed!", iconURL: guildIcon }).setDescription("Reward: 💠 Sudah diambil")],
+        components: [row]
+      });
     }
 
-    db.set(id, "daily", Date.now());
+    db.set(id, "daily", now);
     db.add(id, "points", 200);
 
-    msg.reply("🎁 +200 point");
+    msg.reply({
+      embeds: [new EmbedBuilder().setColor("#57F287").setAuthor({ name: "Daily Claimed!", iconURL: guildIcon }).setDescription("Reward: 💠 200 Poin Aktivitas")],
+      components: [row]
+    });
   }
 
-  // ================= WEEKLY =================
+  // ===== WEEKLY =====
   if (cmd === "weekly") {
-    const last = db.get(id, "weekly");
+    const last = db.get(id, "weekly") || 0;
 
-    if (Date.now() - last < WEEKLY_CD) {
-      const embed = new EmbedBuilder()
-        .setTitle("⏳ Weekly Sudah Diambil");
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("weekly_btn").setLabel("⏰ Ingatkan Minggu Depan").setStyle(ButtonStyle.Success)
+    );
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("weekly_remind")
-          .setLabel("⏰ Ingatkan Saya")
-          .setStyle(ButtonStyle.Success)
-      );
-
-      return msg.reply({ embeds: [embed], components: [row] });
+    if (now - last < WEEKLY_CD) {
+      return msg.reply({
+        embeds: [new EmbedBuilder().setColor("#FEE75C").setAuthor({ name: "Weekly Claimed!", iconURL: guildIcon }).setDescription("Reward: 💠 Sudah diambil")],
+        components: [row]
+      });
     }
 
-    db.set(id, "weekly", Date.now());
+    db.set(id, "weekly", now);
     db.add(id, "points", 1000);
 
-    msg.reply("🎉 +1000 point");
+    msg.reply({
+      embeds: [new EmbedBuilder().setColor("#FEE75C").setAuthor({ name: "Weekly Claimed!", iconURL: guildIcon }).setDescription("Reward: 💠 1000 Poin Aktivitas")],
+      components: [row]
+    });
   }
 
-  // ================= HUNT =================
+  // ===== HUNT =====
   if (cmd === "hunt") {
     const last = db.get(id, "hunt");
 
-    if (Date.now() - last < HUNT_CD) {
-      return msg.reply("⏳ Tunggu 3 menit!");
-    }
+    if (Date.now() - last < HUNT_CD)
+      return msg.reply("⏳ Tunggu 3 menit");
 
     db.set(id, "hunt", Date.now());
 
@@ -167,72 +169,153 @@ client.on("messageCreate", async (msg) => {
 
     setTimeout(async () => {
       await m.edit("👀 Ada sesuatu...");
-
       setTimeout(async () => {
         await m.edit("⚔️ Bertarung...");
-
         setTimeout(async () => {
 
-          const fail = Math.random() < 0.3;
-
-          if (fail) {
+          if (Math.random() < 0.3) {
             db.add(id, "points", -50);
             return m.edit("💀 Gagal (-50)");
           }
 
           const a = animals[Math.floor(Math.random() * animals.length)];
+          let p = db.get(id, "points");
 
-          db.add(id, "points", a.value);
+          let mult = 1;
+          if (p > 10000) mult = 0.5;
+          else if (p > 5000) mult = 0.7;
+
+          const reward = Math.floor(a.value * mult);
+
+          db.add(id, "points", reward);
           db.add(id, `col_${a.name}`, 1);
 
-          const embed = new EmbedBuilder()
-            .setTitle("🏹 Berhasil")
-            .setDescription(`${a.name}\n+${a.value}`)
-            .setImage(a.image);
-
-          m.edit({ content: "", embeds: [embed] });
+          m.edit({
+            embeds: [new EmbedBuilder().setTitle("🏹 Hunt Berhasil!").setDescription(`${a.name}\n+${reward}`).setImage(a.image)]
+          });
 
         }, 2000);
       }, 2000);
     }, 2000);
   }
 
-  // ================= ADD POINT =================
+  // ===== BALANCE =====
+  if (cmd === "balance") {
+    const p = db.get(id, "points");
+
+    msg.reply({
+      embeds: [new EmbedBuilder().setTitle("💰 Profile").setDescription(`
+👤 ${msg.author.username}
+🏆 ${rank(p)}
+
+💬 ${db.get(id, "chat")} 🟢
+🔊 ${db.get(id, "voice")} 🔵
+
+✨ ${p} point
+`)]
+    });
+  }
+
+  // ===== COLLECTION =====
+  if (cmd === "collection") {
+    let text = "";
+    for (let a of animals) {
+      const c = db.get(id, `col_${a.name}`);
+      if (c > 0) text += `${a.name} x${c}\n`;
+    }
+    if (!text) text = "Belum ada koleksi";
+
+    msg.reply({ embeds: [new EmbedBuilder().setTitle("🎒 Collection").setDescription(text)] });
+  }
+
+  // ===== LEADERBOARD =====
+  if (cmd === "leaderboard") {
+    const data = db.all();
+
+    let arr = Object.keys(data).map(u => ({
+      id: u,
+      p: data[u].points || 0
+    }));
+
+    arr.sort((a, b) => b.p - a.p);
+
+    let text = arr.slice(0, 5).map((u, i) =>
+      `#${i + 1} <@${u.id}> - ${u.p}`
+    ).join("\n");
+
+    msg.reply({
+      embeds: [new EmbedBuilder().setTitle("🏆 Leaderboard").setDescription(text + `\n\n👤 Kamu: ${db.get(id, "points")}`)]
+    });
+  }
+
+  // ===== ADD & RESET =====
   if (cmd === "add") {
     if (!msg.member.permissions.has(PermissionsBitField.Flags.Administrator))
       return msg.reply("❌ Admin only");
 
     const user = msg.mentions.users.first();
-    const amount = parseInt(args[2]);
+    const amount = parseInt(args[0]);
 
     db.add(user.id, "points", amount);
-
-    msg.reply(`✅ Ditambahkan ${amount}`);
+    msg.reply(`✅ +${amount}`);
   }
 
-  // ================= RESET =================
   if (cmd === "reset") {
     if (!msg.member.permissions.has(PermissionsBitField.Flags.Administrator))
       return msg.reply("❌ Admin only");
 
     const user = msg.mentions.users.first();
-
     db.set(user.id, "points", 0);
 
-    msg.reply("♻️ Reset berhasil");
+    msg.reply("♻️ Reset");
   }
 });
 
-// ================= BUTTON =================
+// ===== REACTION ANTI SPAM =====
+client.on("messageReactionAdd", (r, user) => {
+  if (user.bot) return;
+  if (r.message.channel.name !== "announcement") return;
+
+  const last = db.get(user.id, "lastReact") || 0;
+
+  if (Date.now() - last > REACT_CD) {
+    db.set(user.id, "lastReact", Date.now());
+    db.add(user.id, "points", 5);
+  }
+});
+
+// ===== VOICE ANTI SPAM =====
+client.on("voiceStateUpdate", (o, n) => {
+  if (!n.channel) return;
+
+  const members = n.channel.members.filter(m => !m.user.bot);
+  if (members.size < 2) return;
+
+  members.forEach(m => {
+    const last = db.get(m.id, "lastVoice") || 0;
+
+    if (Date.now() - last > VOICE_CD) {
+      db.set(m.id, "lastVoice", Date.now());
+      db.add(m.id, "points", 2);
+      db.add(m.id, "voice", 1);
+    }
+  });
+});
+
+// ===== BUTTON =====
 client.on("interactionCreate", async (i) => {
   if (!i.isButton()) return;
 
-  if (i.customId === "daily_remind") {
-    i.reply("⏰ Balik lagi besok ya!");
+  const id = i.user.id;
+
+  if (i.customId === "daily_btn") {
+    db.set(id, "daily_remind", Date.now() + 86400000);
+    i.reply({ content: "⏰ Reminder daily aktif!", ephemeral: true });
   }
 
-  if (i.customId === "weekly_remind") {
-    i.reply("⏰ Jangan lupa minggu depan!");
+  if (i.customId === "weekly_btn") {
+    db.set(id, "weekly_remind", Date.now() + 604800000);
+    i.reply({ content: "⏰ Reminder weekly aktif!", ephemeral: true });
   }
 });
 
