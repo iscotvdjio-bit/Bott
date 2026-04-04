@@ -1,59 +1,37 @@
-const fs = require('fs');
+const fs = require("fs");
+const FILE = "./database.json";
 
-const DB_FILE = './database.json';
-
-// LOAD
-function loadDB() {
-  try {
-    if (!fs.existsSync(DB_FILE)) {
-      fs.writeFileSync(DB_FILE, JSON.stringify({}));
-    }
-
-    const data = fs.readFileSync(DB_FILE, 'utf-8');
-    return data ? JSON.parse(data) : {};
-  } catch (err) {
-    console.error("❌ Error loadDB:", err);
-    return {};
-  }
+function load() {
+  if (!fs.existsSync(FILE)) fs.writeFileSync(FILE, "{}");
+  return JSON.parse(fs.readFileSync(FILE));
 }
 
-// SAVE
-function saveDB(data) {
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error("❌ Error saveDB:", err);
-  }
+function save(data) {
+  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 }
 
-// GET USER
-function getUser(id) {
-  const db = loadDB();
-
-  if (!db[id]) {
-    db[id] = {
-      gold: 100,
-      exp: 0,
-      level: 1,
-      hewan: [],
-      lastDaily: 0
-    };
-    saveDB(db);
-  }
-
-  return db[id];
+function get(user, key) {
+  const data = load();
+  return data[user]?.[key] || 0;
 }
 
-// UPDATE USER
-function updateUser(id, newData) {
-  const db = loadDB();
-  db[id] = newData;
-  saveDB(db);
+function set(user, key, value) {
+  const data = load();
+  if (!data[user]) data[user] = {};
+  data[user][key] = value;
+  save(data);
 }
 
-module.exports = {
-  loadDB,
-  saveDB,
-  getUser,
-  updateUser
-};
+function add(user, key, value) {
+  const data = load();
+  if (!data[user]) data[user] = {};
+  if (!data[user][key]) data[user][key] = 0;
+  data[user][key] += value;
+  save(data);
+}
+
+function all() {
+  return load();
+}
+
+module.exports = { get, set, add, all };
