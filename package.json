@@ -1,15 +1,14 @@
 {
-  "name": "discord-bot",
+  "name": "rpg-bot-no-canvas",
   "version": "1.0.0",
+  "description": "RPG Bot without canvas",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
-  "engines": {
-    "node": "18.x"
-  },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "quick.db": "^9.1.7"
   }
 }
