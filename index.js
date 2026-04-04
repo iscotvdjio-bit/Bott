@@ -1,135 +1,238 @@
-                          require('dotenv').config();
-const fs = require('fs');
-const { 
-  Client, GatewayIntentBits, EmbedBuilder 
-} = require('discord.js');
+require("dotenv").config();
+const {
+  Client,
+  GatewayIntentBits,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  PermissionsBitField
+} = require("discord.js");
 
-const { getUser, updateUser } = require('./database');
+const db = require("./database");
 
-// ================= ANTI ERROR DATABASE =================
-if (!fs.existsSync('./database.json')) {
-  fs.writeFileSync('./database.json', '{}');
-}
-
-// ================= BOT SETUP =================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessageReactions
   ]
 });
 
-// ================= HEWAN =================
+const prefix = "!";
+
+// =======================
+// ⏱️ COOLDOWN
+// =======================
+const HUNT_CD = 180000;
+const DAILY_CD = 86400000;
+const WEEKLY_CD = 604800000;
+
+// =======================
+// 🐾 HEWAN
+// =======================
 const animals = [
-  { name: "🐇 Kelinci", chance: 80, price: 50 },
-  { name: "🐔 Ayam", chance: 70, price: 70 },
-  { name: "🦊 Rubah", chance: 50, price: 120 },
-  { name: "🐺 Serigala", chance: 30, price: 200 },
-  { name: "🐉 Naga", chance: 10, price: 500 }
+  { name: "🐱 Kucing", value: 50, rarity: "Common", image: "https://i.imgur.com/1XKQ9Zp.png" },
+  { name: "🐶 Anjing", value: 50, rarity: "Common", image: "https://i.imgur.com/Z8pQZ6F.png" },
+  { name: "🐔 Ayam", value: 40, rarity: "Common", image: "https://i.imgur.com/9Xn4XyZ.png" },
+  { name: "🦊 Rubah", value: 150, rarity: "Rare", image: "https://i.imgur.com/kR7JmGk.png" },
+  { name: "🐼 Panda", value: 200, rarity: "Rare", image: "https://i.imgur.com/T7yP8WB.png" },
+  { name: "🐺 Serigala", value: 180, rarity: "Rare", image: "https://i.imgur.com/3k9QZpH.png" },
+  { name: "🐲 Naga", value: 500, rarity: "Legendary", image: "https://i.imgur.com/Wl8Qp9G.png" },
+  { name: "🦄 Unicorn", value: 600, rarity: "Legendary", image: "https://i.imgur.com/6XwQZ9M.png" }
 ];
 
-// ================= READY =================
-client.on('ready', () => {
-  console.log(`✅ Bot login sebagai ${client.user.tag}`);
-});
+// =======================
+// 🎖️ RANK
+// =======================
+function rank(p) {
+  if (p >= 5000) return "💎 Legend";
+  if (p >= 3000) return "🔥 Elite";
+  if (p >= 1500) return "⭐ Pro";
+  if (p >= 500) return "🌱 Rookie";
+  return "🐣 Beginner";
+}
 
-// ================= COMMAND =================
-client.on('messageCreate', async (msg) => {
+// =======================
+// 💬 CHAT
+// =======================
+client.on("messageCreate", (msg) => {
   if (msg.author.bot) return;
 
-  const args = msg.content.split(" ");
+  const id = msg.author.id;
+
+  db.add(id, "points", 5);
+  db.add(id, "chat", 1);
+
+  if (msg.attachments.size > 0) db.add(id, "points", 10);
+  if (msg.reference) db.add(id, "points", 5);
+});
+
+// =======================
+// 🔊 VOICE
+// =======================
+client.on("voiceStateUpdate", (o, n) => {
+  if (!n.channel) return;
+
+  const members = n.channel.members.filter(m => !m.user.bot);
+  if (members.size < 2) return;
+
+  members.forEach(m => {
+    db.add(m.id, "points", 2);
+    db.add(m.id, "voice", 1);
+  });
+});
+
+// =======================
+// 🎉 REACTION
+// =======================
+client.on("messageReactionAdd", (r, user) => {
+  if (user.bot) return;
+  if (r.message.channel.name === "announcement") {
+    db.add(user.id, "points", 5);
+  }
+});
+
+// =======================
+// 🎮 COMMAND
+// =======================
+client.on("messageCreate", async (msg) => {
+  if (!msg.content.startsWith(prefix)) return;
+
+  const args = msg.content.slice(1).split(" ");
   const cmd = args[0].toLowerCase();
+  const id = msg.author.id;
 
-  const user = getUser(msg.author.id);
+  // ================= DAILY =================
+  if (cmd === "daily") {
+    const last = db.get(id, "daily");
 
-  // ===== PROFILE =====
-  if (cmd === "!profile") {
-    const embed = new EmbedBuilder()
-      .setTitle("👤 Profile RPG")
-      .setDescription(`
-💰 Gold: ${user.gold}
-⭐ Exp: ${user.exp}
-📊 Level: ${user.level}
-🐾 Hewan: ${user.hewan.length}
-      `);
+    if (Date.now() - last < DAILY_CD) {
+      const embed = new EmbedBuilder()
+        .setTitle("⏳ Daily Sudah Diambil");
 
-    return msg.reply({ embeds: [embed] });
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("daily_remind")
+          .setLabel("⏰ Ingatkan Saya")
+          .setStyle(ButtonStyle.Primary)
+      );
+
+      return msg.reply({ embeds: [embed], components: [row] });
+    }
+
+    db.set(id, "daily", Date.now());
+    db.add(id, "points", 200);
+
+    msg.reply("🎁 +200 point");
   }
 
-  // ===== HUNT =====
-  if (cmd === "!hunt") {
-    let success = Math.random() < 0.7;
+  // ================= WEEKLY =================
+  if (cmd === "weekly") {
+    const last = db.get(id, "weekly");
 
-    if (!success) {
-      return msg.reply("❌ Kamu gagal berburu!");
+    if (Date.now() - last < WEEKLY_CD) {
+      const embed = new EmbedBuilder()
+        .setTitle("⏳ Weekly Sudah Diambil");
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("weekly_remind")
+          .setLabel("⏰ Ingatkan Saya")
+          .setStyle(ButtonStyle.Success)
+      );
+
+      return msg.reply({ embeds: [embed], components: [row] });
     }
 
-    const animal = animals[Math.floor(Math.random() * animals.length)];
+    db.set(id, "weekly", Date.now());
+    db.add(id, "points", 1000);
 
-    user.hewan.push(animal);
-    user.exp += 10;
-
-    // LEVEL UP
-    if (user.exp >= user.level * 50) {
-      user.level++;
-      user.exp = 0;
-      msg.reply(`🎉 Level up! Sekarang level ${user.level}`);
-    }
-
-    updateUser(msg.author.id, user);
-
-    return msg.reply(`🎯 Kamu mendapatkan ${animal.name}!`);
+    msg.reply("🎉 +1000 point");
   }
 
-  // ===== INVENTORY =====
-  if (cmd === "!inv") {
-    if (user.hewan.length === 0) {
-      return msg.reply("📦 Inventory kosong!");
+  // ================= HUNT =================
+  if (cmd === "hunt") {
+    const last = db.get(id, "hunt");
+
+    if (Date.now() - last < HUNT_CD) {
+      return msg.reply("⏳ Tunggu 3 menit!");
     }
 
-    let list = user.hewan.map((h, i) => `${i+1}. ${h.name}`).join("\n");
+    db.set(id, "hunt", Date.now());
 
-    const embed = new EmbedBuilder()
-      .setTitle("📦 Inventory")
-      .setDescription(list);
+    const m = await msg.reply("🌲 Masuk hutan...");
 
-    return msg.reply({ embeds: [embed] });
+    setTimeout(async () => {
+      await m.edit("👀 Ada sesuatu...");
+
+      setTimeout(async () => {
+        await m.edit("⚔️ Bertarung...");
+
+        setTimeout(async () => {
+
+          const fail = Math.random() < 0.3;
+
+          if (fail) {
+            db.add(id, "points", -50);
+            return m.edit("💀 Gagal (-50)");
+          }
+
+          const a = animals[Math.floor(Math.random() * animals.length)];
+
+          db.add(id, "points", a.value);
+          db.add(id, `col_${a.name}`, 1);
+
+          const embed = new EmbedBuilder()
+            .setTitle("🏹 Berhasil")
+            .setDescription(`${a.name}\n+${a.value}`)
+            .setImage(a.image);
+
+          m.edit({ content: "", embeds: [embed] });
+
+        }, 2000);
+      }, 2000);
+    }, 2000);
   }
 
-  // ===== JUAL =====
-  if (cmd === "!jual") {
-    if (user.hewan.length === 0) {
-      return msg.reply("❌ Tidak ada hewan!");
-    }
+  // ================= ADD POINT =================
+  if (cmd === "add") {
+    if (!msg.member.permissions.has(PermissionsBitField.Flags.Administrator))
+      return msg.reply("❌ Admin only");
 
-    let total = 0;
-    user.hewan.forEach(h => total += h.price);
+    const user = msg.mentions.users.first();
+    const amount = parseInt(args[2]);
 
-    user.gold += total;
-    user.hewan = [];
+    db.add(user.id, "points", amount);
 
-    updateUser(msg.author.id, user);
-
-    return msg.reply(`💰 Semua hewan terjual! Dapat ${total} gold`);
+    msg.reply(`✅ Ditambahkan ${amount}`);
   }
 
-  // ===== DAILY =====
-  if (cmd === "!daily") {
-    const now = Date.now();
+  // ================= RESET =================
+  if (cmd === "reset") {
+    if (!msg.member.permissions.has(PermissionsBitField.Flags.Administrator))
+      return msg.reply("❌ Admin only");
 
-    if (!user.lastDaily) user.lastDaily = 0;
+    const user = msg.mentions.users.first();
 
-    if (now - user.lastDaily < 86400000) {
-      return msg.reply("⏳ Daily sudah diambil!");
-    }
+    db.set(user.id, "points", 0);
 
-    user.gold += 200;
-    user.lastDaily = now;
+    msg.reply("♻️ Reset berhasil");
+  }
+});
 
-    updateUser(msg.author.id, user);
+// ================= BUTTON =================
+client.on("interactionCreate", async (i) => {
+  if (!i.isButton()) return;
 
-    return msg.reply("🎁 Kamu dapat 200 gold!");
+  if (i.customId === "daily_remind") {
+    i.reply("⏰ Balik lagi besok ya!");
+  }
+
+  if (i.customId === "weekly_remind") {
+    i.reply("⏰ Jangan lupa minggu depan!");
   }
 });
 
