@@ -5,7 +5,8 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  PermissionsBitField
 } = require("discord.js");
 
 const db = require("./database");
@@ -32,7 +33,7 @@ const CHAT_LIMIT = 100;
 const REACT_CD = 5000;
 const VOICE_CD = 60000;
 
-// ===== HEWAN (HD) =====
+// ===== HEWAN (HD IMAGE) =====
 const animals = [
   { name: "🐱 Kucing", value: 50, rarity: "Common", image: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131" },
   { name: "🐶 Anjing", value: 50, rarity: "Common", image: "https://images.unsplash.com/photo-1517849845537-4d257902454a" },
@@ -61,7 +62,7 @@ client.on("messageCreate", async (msg) => {
   const id = msg.author.id;
   const now = Date.now();
 
-  // ===== REMINDER (DM + fallback) =====
+  // ===== REMINDER (DM + FALLBACK) =====
   const sendReminder = async (text) => {
     try {
       await msg.author.send(text);
@@ -103,6 +104,7 @@ client.on("messageCreate", async (msg) => {
 
   const args = msg.content.slice(1).trim().split(/ +/);
   const cmd = args.shift().toLowerCase();
+  const guildIcon = msg.guild?.iconURL({ dynamic: true }) || null;
 
   // ===== DAILY =====
   if (cmd === "daily") {
@@ -114,7 +116,7 @@ client.on("messageCreate", async (msg) => {
 
     if (now - last < DAILY_CD) {
       return msg.reply({
-        embeds: [new EmbedBuilder().setColor("#57F287").setDescription("💠 Sudah diambil")],
+        embeds: [new EmbedBuilder().setColor("#57F287").setAuthor({ name: "Daily Claimed!", iconURL: guildIcon }).setDescription("Reward: 💠 Sudah diambil")],
         components: [row]
       });
     }
@@ -123,7 +125,7 @@ client.on("messageCreate", async (msg) => {
     db.add(id, "points", 200);
 
     msg.reply({
-      embeds: [new EmbedBuilder().setColor("#57F287").setDescription("💠 +200 Point")],
+      embeds: [new EmbedBuilder().setColor("#57F287").setAuthor({ name: "Daily Claimed!", iconURL: guildIcon }).setDescription("Reward: 💠 200 Poin Aktivitas")],
       components: [row]
     });
   }
@@ -138,7 +140,7 @@ client.on("messageCreate", async (msg) => {
 
     if (now - last < WEEKLY_CD) {
       return msg.reply({
-        embeds: [new EmbedBuilder().setColor("#FEE75C").setDescription("💠 Sudah diambil")],
+        embeds: [new EmbedBuilder().setColor("#FEE75C").setAuthor({ name: "Weekly Claimed!", iconURL: guildIcon }).setDescription("Reward: 💠 Sudah diambil")],
         components: [row]
       });
     }
@@ -147,48 +149,61 @@ client.on("messageCreate", async (msg) => {
     db.add(id, "points", 1000);
 
     msg.reply({
-      embeds: [new EmbedBuilder().setColor("#FEE75C").setDescription("💠 +1000 Point")],
+      embeds: [new EmbedBuilder().setColor("#FEE75C").setAuthor({ name: "Weekly Claimed!", iconURL: guildIcon }).setDescription("Reward: 💠 1000 Poin Aktivitas")],
       components: [row]
     });
   }
 
-  // ===== HUNT =====
+  // ===== HUNT HD =====
   if (cmd === "hunt") {
     const last = db.get(id, "hunt");
-    if (now - last < HUNT_CD) return msg.reply("⏳ Tunggu 3 menit");
+
+    if (now - last < HUNT_CD)
+      return msg.reply("⏳ Tunggu 3 menit");
 
     db.set(id, "hunt", now);
 
     const m = await msg.reply("🌲 Masuk hutan...");
 
     setTimeout(async () => {
-      await m.edit("⚔️ Bertarung...");
+      await m.edit("👀 Mencari target...");
       setTimeout(async () => {
+        await m.edit("⚔️ Bertarung...");
+        setTimeout(async () => {
 
-        if (Math.random() < 0.3) {
-          db.add(id, "points", -50);
-          return m.edit("💀 Gagal (-50)");
-        }
+          if (Math.random() < 0.3) {
+            db.add(id, "points", -50);
+            return m.edit("💀 Gagal (-50)");
+          }
 
-        const a = animals[Math.floor(Math.random() * animals.length)];
-        let p = db.get(id, "points");
+          const a = animals[Math.floor(Math.random() * animals.length)];
+          let p = db.get(id, "points");
 
-        let mult = p > 10000 ? 0.5 : p > 5000 ? 0.7 : 1;
-        const reward = Math.floor(a.value * mult);
+          let mult = 1;
+          if (p > 10000) mult = 0.5;
+          else if (p > 5000) mult = 0.7;
 
-        db.add(id, "points", reward);
-        db.add(id, `col_${a.name}`, 1);
+          const reward = Math.floor(a.value * mult);
 
-        m.edit({
-          content: "",
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("🏹 Hunt Berhasil!")
-              .setDescription(`${a.name}\n💰 +${reward}\n✨ ${a.rarity}`)
-              .setImage(a.image)
-          ]
-        });
+          db.add(id, "points", reward);
+          db.add(id, `col_${a.name}`, 1);
 
+          m.edit({
+            content: "",
+            embeds: [
+              new EmbedBuilder()
+                .setTitle("🏹 Hunt Berhasil!")
+                .setDescription(`${a.name}\n💰 +${reward} point\n✨ ${a.rarity}`)
+                .setColor(
+                  a.rarity === "Legendary" ? "#FFD700" :
+                  a.rarity === "Rare" ? "#0099ff" :
+                  "#aaaaaa"
+                )
+                .setImage(a.image)
+            ]
+          });
+
+        }, 2000);
       }, 2000);
     }, 2000);
   }
@@ -202,8 +217,8 @@ client.on("messageCreate", async (msg) => {
 👤 ${msg.author.username}
 🏆 ${rank(p)}
 
-💬 ${db.get(id, "chat")}
-🔊 ${db.get(id, "voice")}
+💬 ${db.get(id, "chat")} 
+🔊 ${db.get(id, "voice")} 
 
 ✨ ${p} point
 `)]
@@ -219,10 +234,12 @@ client.on("messageCreate", async (msg) => {
     }
     if (!text) text = "Belum ada koleksi";
 
-    msg.reply({ embeds: [new EmbedBuilder().setTitle("🎒 Collection").setDescription(text)] });
+    msg.reply({
+      embeds: [new EmbedBuilder().setTitle("🎒 Collection").setDescription(text)]
+    });
   }
 
- // ===== LEADERBOARD =====
+  // ===== LEADERBOARD =====
   if (cmd === "leaderboard") {
     const data = db.all();
 
@@ -238,45 +255,41 @@ client.on("messageCreate", async (msg) => {
     ).join("\n");
 
     msg.reply({
-      embeds: [new EmbedBuilder().setTitle("🏆 Leaderboard").setDescription(text + `\n\n👤 Point Kamu: ${db.get(id, "points")}`)]
+      embeds: [new EmbedBuilder().setTitle("🏆 Leaderboard").setDescription(text + `\n\n👤 Kamu: ${db.get(id, "points")}`)]
     });
+  }
+
+});
+
+// ===== REACTION ANTI SPAM =====
+client.on("messageReactionAdd", (r, user) => {
+  if (user.bot) return;
+  if (r.message.channel.name !== "announcement") return;
+
+  const last = db.get(user.id, "lastReact") || 0;
+
+  if (Date.now() - last > REACT_CD) {
+    db.set(user.id, "lastReact", Date.now());
+    db.add(user.id, "points", 5);
   }
 });
 
-  // ===== ADD (OWNER ONLY) =====
-  if (cmd === "add") {
-    if (msg.author.id !== msg.guild.ownerId)
-      return msg.reply("❌ Hanya OWNER server!");
+// ===== VOICE ANTI SPAM =====
+client.on("voiceStateUpdate", (o, n) => {
+  if (!n.channel) return;
 
-    const user = msg.mentions.users.first();
-    const amount = parseInt(args[0]);
+  const members = n.channel.members.filter(m => !m.user.bot);
+  if (members.size < 2) return;
 
-    if (!user || isNaN(amount))
-      return msg.reply("⚠️ !add @user jumlah");
+  members.forEach(m => {
+    const last = db.get(m.id, "lastVoice") || 0;
 
-    db.add(user.id, "points", amount);
-
-    msg.reply({
-      embeds: [new EmbedBuilder().setColor("Green").setDescription(`+${amount} ke ${user.username}`)]
-    });
-  }
-
-  // ===== RESET (OWNER ONLY) =====
-  if (cmd === "reset") {
-    if (msg.author.id !== msg.guild.ownerId)
-      return msg.reply("❌ Hanya OWNER server!");
-
-    const user = msg.mentions.users.first();
-    if (!user) return msg.reply("⚠️ !reset @user");
-
-    db.set(user.id, "points", 0);
-    db.set(user.id, "chat", 0);
-    db.set(user.id, "voice", 0);
-
-    msg.reply({
-      embeds: [new EmbedBuilder().setColor("Red").setDescription(`Reset ${user.username}`)]
-    });
-  }
+    if (Date.now() - last > VOICE_CD) {
+      db.set(m.id, "lastVoice", Date.now());
+      db.add(m.id, "points", 2);
+      db.add(m.id, "voice", 1);
+    }
+  });
 });
 
 // ===== BUTTON =====
