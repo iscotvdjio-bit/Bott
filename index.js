@@ -33,16 +33,16 @@ const CHAT_LIMIT = 100;
 const REACT_CD = 5000;
 const VOICE_CD = 60000;
 
-// ===== HEWAN =====
+// ===== HEWAN (HD IMAGE) =====
 const animals = [
-  { name: "🐱 Kucing", value: 50, rarity: "Common", image: "https://i.imgur.com/1XKQ9Zp.png" },
-  { name: "🐶 Anjing", value: 50, rarity: "Common", image: "https://i.imgur.com/Z8pQZ6F.png" },
-  { name: "🐔 Ayam", value: 40, rarity: "Common", image: "https://i.imgur.com/9Xn4XyZ.png" },
-  { name: "🦊 Rubah", value: 150, rarity: "Rare", image: "https://i.imgur.com/kR7JmGk.png" },
-  { name: "🐼 Panda", value: 200, rarity: "Rare", image: "https://i.imgur.com/T7yP8WB.png" },
-  { name: "🐺 Serigala", value: 180, rarity: "Rare", image: "https://i.imgur.com/3k9QZpH.png" },
-  { name: "🐲 Naga", value: 500, rarity: "Legendary", image: "https://i.imgur.com/Wl8Qp9G.png" },
-  { name: "🦄 Unicorn", value: 600, rarity: "Legendary", image: "https://i.imgur.com/6XwQZ9M.png" }
+  { name: "🐱 Kucing", value: 50, rarity: "Common", image: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131" },
+  { name: "🐶 Anjing", value: 50, rarity: "Common", image: "https://images.unsplash.com/photo-1517849845537-4d257902454a" },
+  { name: "🐔 Ayam", value: 40, rarity: "Common", image: "https://images.unsplash.com/photo-1589927986089-35812388d1f4" },
+  { name: "🦊 Rubah", value: 150, rarity: "Rare", image: "https://images.unsplash.com/photo-1501706362039-c6e08a6b9b6f" },
+  { name: "🐼 Panda", value: 200, rarity: "Rare", image: "https://images.unsplash.com/photo-1564349683136-77e08dba1ef7" },
+  { name: "🐺 Serigala", value: 180, rarity: "Rare", image: "https://images.unsplash.com/photo-1601758228041-f3b2795255f1" },
+  { name: "🐲 Naga", value: 500, rarity: "Legendary", image: "https://images.unsplash.com/photo-1611605698335-8b1569810432" },
+  { name: "🦄 Unicorn", value: 600, rarity: "Legendary", image: "https://images.unsplash.com/photo-1619995745882-f4128ac82ad6" }
 ];
 
 // ===== RANK =====
@@ -60,10 +60,9 @@ client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
   const id = msg.author.id;
-
-  // ===== REMINDER CHECK =====
   const now = Date.now();
 
+  // ===== REMINDER (DM + FALLBACK) =====
   const sendReminder = async (text) => {
     try {
       await msg.author.send(text);
@@ -91,8 +90,8 @@ client.on("messageCreate", async (msg) => {
     db.set(id, "chatDate", today);
   }
 
-  if (Date.now() - lastChat > CHAT_CD && db.get(id, "chatDaily") < CHAT_LIMIT) {
-    db.set(id, "lastChat", Date.now());
+  if (now - lastChat > CHAT_CD && db.get(id, "chatDaily") < CHAT_LIMIT) {
+    db.set(id, "lastChat", now);
     db.add(id, "points", 5);
     db.add(id, "chat", 1);
     db.add(id, "chatDaily", 1);
@@ -105,7 +104,6 @@ client.on("messageCreate", async (msg) => {
 
   const args = msg.content.slice(1).trim().split(/ +/);
   const cmd = args.shift().toLowerCase();
-
   const guildIcon = msg.guild?.iconURL({ dynamic: true }) || null;
 
   // ===== DAILY =====
@@ -156,19 +154,19 @@ client.on("messageCreate", async (msg) => {
     });
   }
 
-  // ===== HUNT =====
+  // ===== HUNT HD =====
   if (cmd === "hunt") {
     const last = db.get(id, "hunt");
 
-    if (Date.now() - last < HUNT_CD)
+    if (now - last < HUNT_CD)
       return msg.reply("⏳ Tunggu 3 menit");
 
-    db.set(id, "hunt", Date.now());
+    db.set(id, "hunt", now);
 
     const m = await msg.reply("🌲 Masuk hutan...");
 
     setTimeout(async () => {
-      await m.edit("👀 Ada sesuatu...");
+      await m.edit("👀 Mencari target...");
       setTimeout(async () => {
         await m.edit("⚔️ Bertarung...");
         setTimeout(async () => {
@@ -191,7 +189,18 @@ client.on("messageCreate", async (msg) => {
           db.add(id, `col_${a.name}`, 1);
 
           m.edit({
-            embeds: [new EmbedBuilder().setTitle("🏹 Hunt Berhasil!").setDescription(`${a.name}\n+${reward}`).setImage(a.image)]
+            content: "",
+            embeds: [
+              new EmbedBuilder()
+                .setTitle("🏹 Hunt Berhasil!")
+                .setDescription(`${a.name}\n💰 +${reward} point\n✨ ${a.rarity}`)
+                .setColor(
+                  a.rarity === "Legendary" ? "#FFD700" :
+                  a.rarity === "Rare" ? "#0099ff" :
+                  "#aaaaaa"
+                )
+                .setImage(a.image)
+            ]
           });
 
         }, 2000);
@@ -225,7 +234,9 @@ client.on("messageCreate", async (msg) => {
     }
     if (!text) text = "Belum ada koleksi";
 
-    msg.reply({ embeds: [new EmbedBuilder().setTitle("🎒 Collection").setDescription(text)] });
+    msg.reply({
+      embeds: [new EmbedBuilder().setTitle("🎒 Collection").setDescription(text)]
+    });
   }
 
   // ===== LEADERBOARD =====
@@ -248,27 +259,6 @@ client.on("messageCreate", async (msg) => {
     });
   }
 
-  // ===== ADD & RESET =====
-  if (cmd === "add") {
-    if (!msg.member.permissions.has(PermissionsBitField.Flags.Administrator))
-      return msg.reply("❌ Admin only");
-
-    const user = msg.mentions.users.first();
-    const amount = parseInt(args[0]);
-
-    db.add(user.id, "points", amount);
-    msg.reply(`✅ +${amount}`);
-  }
-
-  if (cmd === "reset") {
-    if (!msg.member.permissions.has(PermissionsBitField.Flags.Administrator))
-      return msg.reply("❌ Admin only");
-
-    const user = msg.mentions.users.first();
-    db.set(user.id, "points", 0);
-
-    msg.reply("♻️ Reset");
-  }
 });
 
 // ===== REACTION ANTI SPAM =====
