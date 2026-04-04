@@ -222,7 +222,7 @@ client.on("messageCreate", async (msg) => {
     msg.reply({ embeds: [new EmbedBuilder().setTitle("🎒 Collection").setDescription(text)] });
   }
 
-  // ===== LEADERBOARD =====
+ // ===== LEADERBOARD =====
   if (cmd === "leaderboard") {
     const data = db.all();
 
@@ -238,9 +238,10 @@ client.on("messageCreate", async (msg) => {
     ).join("\n");
 
     msg.reply({
-      embeds: [new EmbedBuilder().setTitle("🏆 Leaderboard").setDescription(text)]
+      embeds: [new EmbedBuilder().setTitle("🏆 Leaderboard").setDescription(text + `\n\n👤 Point Kamu: ${db.get(id, "points")}`)]
     });
   }
+});
 
   // ===== ADD (OWNER ONLY) =====
   if (cmd === "add") {
