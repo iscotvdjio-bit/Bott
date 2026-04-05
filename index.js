@@ -34,11 +34,11 @@ function antiRich(points) {
 
 // ===== HEWAN =====
 const animals = [
-  { name: "🐱 Kucing", value: 50 },
-  { name: "🐶 Anjing", value: 50 },
-  { name: "🦊 Rubah", value: 150 },
-  { name: "🐼 Panda", value: 200 },
-  { name: "🐲 Naga", value: 500 }
+  { name: "🐦‍⬛ Black Bird", value: 50 },
+  { name: "🐦 Blue Bird", value: 50 },
+  { name: "🦌 Rusa", value: 150 },
+  { name: "🐯 Harimau", value: 200 },
+  { name: "🦁 singa", value: 500 }
 ];
 
 // ===== MESSAGE =====
