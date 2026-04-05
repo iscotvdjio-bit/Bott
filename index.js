@@ -2,7 +2,10 @@ require("dotenv").config();
 const {
   Client,
   GatewayIntentBits,
-  EmbedBuilder
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } = require("discord.js");
 
 const db = require("./database");
@@ -19,7 +22,6 @@ const client = new Client({
 });
 
 const prefix = "!";
-const LINE = "━━━━━━━━━━━━━━";
 
 // ===== ANTI KAYA =====
 function antiRich(points) {
@@ -65,7 +67,7 @@ client.on("messageCreate", async (msg) => {
     db.set(id, "weekly_remind", 0);
   }
 
-  // ===== COMMAND PARSER =====
+  // ===== COMMAND =====
   if (!msg.content.startsWith(prefix)) return;
 
   const args = msg.content.slice(prefix.length).trim().split(/ +/);
@@ -75,30 +77,78 @@ client.on("messageCreate", async (msg) => {
   if (cmd === "daily") {
     const last = db.get(id, "daily") || 0;
 
-    if (now - last < 86400000)
-      return msg.reply("💠 Sudah claim");
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("daily_remind")
+        .setLabel("⏰ Ingatkan Saya")
+        .setStyle(ButtonStyle.Primary)
+    );
+
+    if (now - last < 86400000) {
+      return msg.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#57F287")
+            .setDescription(`✅ **Daily Claimed!**
+Reward: <:emoji_4:1490319270553325638> **Sudah diambil**`)
+        ],
+        components: [row]
+      });
+    }
 
     const reward = Math.floor(Math.random() * 700) + 800;
 
     db.set(id, "daily", now);
     db.add(id, "points", reward);
 
-    msg.reply(`💠 +${reward} Vibe`);
+    msg.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#57F287")
+          .setDescription(`✅ **Daily Claimed!**
+Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
+      ],
+      components: [row]
+    });
   }
 
   // ===== WEEKLY =====
   if (cmd === "weekly") {
     const last = db.get(id, "weekly") || 0;
 
-    if (now - last < 604800000)
-      return msg.reply("💠 Sudah claim");
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("weekly_remind")
+        .setLabel("⏰ Ingatkan Minggu Depan")
+        .setStyle(ButtonStyle.Success)
+    );
+
+    if (now - last < 604800000) {
+      return msg.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#FEE75C")
+            .setDescription(`✅ **Weekly Claimed!**
+Reward: <:emoji_4:1490319270553325638> **Sudah diambil**`)
+        ],
+        components: [row]
+      });
+    }
 
     const reward = Math.floor(Math.random() * 1500) + 1500;
 
     db.set(id, "weekly", now);
     db.add(id, "points", reward);
 
-    msg.reply(`💠 +${reward} Vibe`);
+    msg.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#FEE75C")
+          .setDescription(`✅ **Weekly Claimed!**
+Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
+      ],
+      components: [row]
+    });
   }
 
   // ===== HUNT =====
@@ -227,12 +277,12 @@ ${voiceTop.join("\n")}
       return msg.reply("❌ Owner only");
 
     const user = msg.mentions.users.first();
-    const amount = parseInt(args[1]);
+    const amount = parseInt(args[0]);
 
-    if (!user || isNaN(amount)) return msg.reply("Format salah");
+    if (!user || isNaN(amount)) return msg.reply("Format: !add @user 100");
 
     db.add(user.id, "points", amount);
-    msg.reply(`+${amount}`);
+    msg.reply(`✅ +${amount} point ke ${user.username}`);
   }
 
   if (cmd === "reset") {
@@ -243,7 +293,24 @@ ${voiceTop.join("\n")}
     if (!user) return msg.reply("Tag user");
 
     db.set(user.id, "points", 0);
-    msg.reply("Reset berhasil");
+    msg.reply("✅ Reset berhasil");
+  }
+});
+
+// ===== BUTTON =====
+client.on("interactionCreate", async (i) => {
+  if (!i.isButton()) return;
+
+  const id = i.user.id;
+
+  if (i.customId === "daily_remind") {
+    db.set(id, "daily_remind", Date.now() + 86400000);
+    return i.reply({ content: "⏰ Reminder daily aktif!", ephemeral: true });
+  }
+
+  if (i.customId === "weekly_remind") {
+    db.set(id, "weekly_remind", Date.now() + 604800000);
+    return i.reply({ content: "⏰ Reminder weekly aktif!", ephemeral: true });
   }
 });
 
@@ -270,9 +337,10 @@ client.on("messageReactionAdd", (r, u) => {
   db.add(u.id, "points", Math.floor(5 * antiRich(p)));
 });
 
+// ===== LOGIN =====
 client.login(process.env.TOKEN);
 
-// ===== AUTO REMINDER PRO =====
+// ===== AUTO REMINDER LOOP =====
 setInterval(async () => {
   if (!client.user) return;
 
