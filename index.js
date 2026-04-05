@@ -83,7 +83,7 @@ client.on("messageCreate", async (msg) => {
     db.set(id, "daily", now);
     db.add(id, "points", 1000);
 
-    msg.reply("💠 +1000 AD");
+    msg.reply("💠 +1000 Vibe");
   }
 
   // ===== WEEKLY =====
@@ -96,7 +96,7 @@ client.on("messageCreate", async (msg) => {
     db.set(id, "weekly", now);
     db.add(id, "points", 3000);
 
-    msg.reply("💠 +3000 AD");
+    msg.reply("💠 +3000 Vibe");
   }
 
   // ===== HUNT =====
@@ -110,7 +110,7 @@ client.on("messageCreate", async (msg) => {
 
     if (Math.random() < 0.3) {
       db.add(id, "points", -20);
-      return msg.reply("💀 Diserang 🐍 Ular (-20)");
+      return msg.reply("💀 Diserang 🐍 Ular (-30)");
     }
 
     const a = animals[Math.floor(Math.random() * animals.length)];
@@ -150,7 +150,7 @@ Rank : #${rank}
 🎤 Voice: ${db.get(id, "voice")}
 
 ${LINE}
-💠 ${p} AD
+💠 ${p} Vibe
 ${LINE}
 `)
       ]
