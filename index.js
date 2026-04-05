@@ -49,29 +49,24 @@ client.on("messageCreate", async (msg) => {
   const id = msg.author.id;
   const now = Date.now();
 
-  // ===== CHAT SYSTEM =====
-  const lastChat = db.get(id, "lastChat") || 0;
-
-  if (now - lastChat > 8000) {
-    db.set(id, "lastChat", now);
-
-    let p = db.get(id, "points");
-    let mult = antiRich(p);
-
-    db.add(id, "points", Math.floor(5 * mult));
-    db.add(id, "chat", 1);
-
-    if (msg.attachments.size > 0)
-      db.add(id, "points", Math.floor(15 * mult));
-
-    if (msg.reference)
-      db.add(id, "points", Math.floor(10 * mult));
+  // ===== AUTO REMINDER =====
+const sendReminder = async (text) => {
+  try {
+    await msg.author.send(text);
+  } catch {
+    msg.reply(text);
   }
+};
 
-  if (!msg.content.startsWith(prefix)) return;
+if (db.get(id, "daily_remind") && now >= db.get(id, "daily_remind")) {
+  await sendReminder("🎁 Daily kamu sudah bisa di claim!");
+  db.set(id, "daily_remind", 0);
+}
 
-  const args = msg.content.slice(1).split(/ +/);
-  const cmd = args.shift().toLowerCase();
+if (db.get(id, "weekly_remind") && now >= db.get(id, "weekly_remind")) {
+  await sendReminder("🎉 Weekly kamu sudah bisa di claim!");
+  db.set(id, "weekly_remind", 0);
+}
 
   // ===== DAILY =====
   if (cmd === "daily") {
@@ -305,3 +300,34 @@ client.on("messageReactionAdd", (r, u) => {
 });
 
 client.login(process.env.TOKEN);
+
+// ===== AUTO REMINDER PRO LOOP =====
+setInterval(async () => {
+  // Pastikan bot sudah siap
+  if (!client.isReady()) return;
+  const data = db.all();
+  const now = Date.now();
+
+  for (let userId in data) {
+    const userData = data[userId];
+
+    try {
+      const user = await client.users.fetch(userId);
+
+      // ===== DAILY =====
+      if (userData.daily_remind && now >= userData.daily_remind) {
+        await user.send("🎁 Daily kamu sudah bisa di claim!");
+        db.set(userId, "daily_remind", 0);
+      }
+
+      // ===== WEEKLY =====
+      if (userData.weekly_remind && now >= userData.weekly_remind) {
+        await user.send("🎉 Weekly kamu sudah bisa di claim!");
+        db.set(userId, "weekly_remind", 0);
+      }
+
+    } catch (err) {
+      // user mungkin tidak bisa di DM
+    }
+  }
+}, 60000); // cek tiap 60 detik
