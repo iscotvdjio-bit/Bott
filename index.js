@@ -124,38 +124,51 @@ client.on("messageCreate", async (msg) => {
     db.add(id, `col_${a.name}`, 1);
 
     msg.reply(`🏹 ${a.name} +${reward}`);
+    
   }
 
-  // ===== BALANCE =====
   if (cmd === "balance") {
-    const data = db.all();
+  const data = db.all();
 
-    let arr = Object.keys(data).map(u => ({
-      id: u,
-      p: data[u].points || 0
-    }));
+  // ===== RANK REAL =====
+  let arr = Object.keys(data).map(u => ({
+    id: u,
+    p: data[u].points || 0
+  }));
 
-    arr.sort((a, b) => b.p - a.p);
+  arr.sort((a, b) => b.p - a.p);
+  const rank = arr.findIndex(u => u.id === id) + 1;
 
-    const rank = arr.findIndex(u => u.id === id) + 1;
+  const p = db.get(id, "points") || 0;
+  const chat = db.get(id, "chat") || 0;
+  const voice = db.get(id, "voice") || 0;
 
-    const p = db.get(id, "points");
+  // ===== FORMAT ANGKA =====
+  const format = (n) => n.toLocaleString("id-ID");
 
-    msg.reply({
-      embeds: [
-        new EmbedBuilder().setColor("#2B2D31").setDescription(`
-Rank : #${rank}
+  // ===== WAKTU =====
+  const time = new Date().toLocaleString("id-ID");
 
-💬 Chat: ${db.get(id, "chat")}
-🎤 Voice: ${db.get(id, "voice")}
+  msg.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor("#2B2D31")
+        .setTitle(`** Point ** : ${msg.author.username}`)
+        .setThumbnail(msg.author.displayAvatarURL({ dynamic: true })) // foto kanan atas
+        .setDescription(`
+** Rank ** : #${rank}
+💬 **Chat**: ${chat}
+🎙️ **Voice**: ${voice}
+🎮 **Activity**: ${format(p)}
 
-${LINE}
-💠 ${p} Vibe
-${LINE}
+------------------------------------
+💸 **Total**: <:emoji_4:1490319270553325638> **${format(p)}** vibepoint
+------------------------------------
+<:emoji_4:1490319270553325638> vibepoint | ${time}
 `)
-      ]
-    });
-  }
+    ]
+  });
+}
 
   // ===== LEADERBOARD =====
   if (cmd === "leaderboard") {
