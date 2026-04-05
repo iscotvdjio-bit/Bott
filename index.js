@@ -143,26 +143,38 @@ client.on("messageCreate", async (msg) => {
   const chat = db.get(id, "chat") || 0;
   const voice = db.get(id, "voice") || 0;
 
-  // ===== FORMAT ANGKA =====
+  // ===== FORMAT =====
   const format = (n) => n.toLocaleString("id-ID");
-
-  // ===== WAKTU =====
   const time = new Date().toLocaleString("id-ID");
 
+  // ===== LEVEL SYSTEM =====
+  const level = Math.floor(p / 100);
+  const current = p % 100;
+  const percent = Math.floor((current / 100) * 100);
+
+  const barLength = 10;
+  const filled = Math.floor((percent / 100) * barLength);
+  const bar = "█".repeat(filled) + "░".repeat(barLength - filled);
+
+  // ===== EMBED =====
   msg.reply({
     embeds: [
       new EmbedBuilder()
         .setColor("#2B2D31")
         .setTitle(`** Point ** : ${msg.author.username}`)
-        .setThumbnail(msg.author.displayAvatarURL({ dynamic: true })) // foto kanan atas
+        .setThumbnail(msg.author.displayAvatarURL({ dynamic: true }))
         .setDescription(`
 ** Rank ** : #${rank}
-💬 **Chat**: ${chat}
-🎙️ **Voice**: ${voice}
-🎮 **Activity**: ${format(p)}
+
+💬 **Chat (Aktivitas)**: ${chat}
+🔊 **Voice (Aktivitas)**: ${voice}
+
+👤 **Activity (Point)**: ${format(p)}
+
+${bar} ${percent}% (Level ${level})
 
 ------------------------------------
-💸 **Total**: <:emoji_4:1490319270553325638> **${format(p)}** vibepoint
+💸 **Total Point**: <:emoji_4:1490319270553325638> **${format(p)}** vibepoint
 ------------------------------------
 <:emoji_4:1490319270553325638> vibepoint | ${time}
 `)
