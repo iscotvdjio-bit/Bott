@@ -22,37 +22,25 @@ const client = new Client({
 });
 
 const prefix = "!";
+const LINE = "━━━━━━━━━━━━━━";
 
-// ===== CONFIG =====
-const HUNT_CD = 180000;
-const DAILY_CD = 86400000;
-const WEEKLY_CD = 604800000;
-const CHAT_CD = 10000;
-const CHAT_LIMIT = 100;
-const REACT_CD = 5000;
-const VOICE_CD = 60000;
+// ===== ANTI KAYA =====
+function antiRich(points) {
+  if (points >= 20000) return 0.3;
+  if (points >= 10000) return 0.5;
+  if (points >= 5000) return 0.7;
+  if (points >= 2000) return 0.85;
+  return 1;
+}
 
 // ===== HEWAN =====
 const animals = [
-  { name: "🐱 Kucing", value: 50, rarity: "Common", image: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131" },
-  { name: "🐶 Anjing", value: 50, rarity: "Common", image: "https://images.unsplash.com/photo-1517849845537-4d257902454a" },
-  { name: "🐔 Ayam", value: 40, rarity: "Common", image: "https://images.unsplash.com/photo-1589927986089-35812388d1f4" },
-  { name: "🦊 Rubah", value: 150, rarity: "Rare", image: "https://images.unsplash.com/photo-1501706362039-c6e08a6b9b6f" },
-  { name: "🐼 Panda", value: 200, rarity: "Rare", image: "https://images.unsplash.com/photo-1564349683136-77e08dba1ef7" },
-  { name: "🐺 Serigala", value: 180, rarity: "Rare", image: "https://images.unsplash.com/photo-1601758228041-f3b2795255f1" },
-  { name: "🐲 Naga", value: 500, rarity: "Legendary", image: "https://images.unsplash.com/photo-1611605698335-8b1569810432" },
-  { name: "🦄 Unicorn", value: 600, rarity: "Legendary", image: "https://images.unsplash.com/photo-1619995745882-f4128ac82ad6" }
+  { name: "🐱 Kucing", value: 50 },
+  { name: "🐶 Anjing", value: 50 },
+  { name: "🦊 Rubah", value: 150 },
+  { name: "🐼 Panda", value: 200 },
+  { name: "🐲 Naga", value: 500 }
 ];
-
-// ===== RANK =====
-function rank(p) {
-  if (p >= 10000) return "👑 Sultan";
-  if (p >= 5000) return "💎 Legend";
-  if (p >= 3000) return "🔥 Elite";
-  if (p >= 1500) return "⭐ Pro";
-  if (p >= 500) return "🌱 Rookie";
-  return "🐣 Beginner";
-}
 
 // ===== MESSAGE =====
 client.on("messageCreate", async (msg) => {
@@ -61,152 +49,112 @@ client.on("messageCreate", async (msg) => {
   const id = msg.author.id;
   const now = Date.now();
 
-  // ===== REMINDER =====
-  const sendReminder = async (text) => {
-    try {
-      await msg.author.send(text);
-    } catch {
-      msg.reply(text);
-    }
-  };
+  // ===== CHAT SYSTEM =====
+  const lastChat = db.get(id, "lastChat") || 0;
 
-  if (db.get(id, "daily_remind") && now >= db.get(id, "daily_remind")) {
-    await sendReminder("🎁 Daily kamu sudah bisa di claim!");
-    db.set(id, "daily_remind", 0);
-  }
-
-  if (db.get(id, "weekly_remind") && now >= db.get(id, "weekly_remind")) {
-    await sendReminder("🎉 Weekly kamu sudah bisa di claim!");
-    db.set(id, "weekly_remind", 0);
-  }
-
-  // ===== CHAT =====
-  const lastChat = db.get(id, "lastChat");
-  const today = new Date().toDateString();
-
-  if (db.get(id, "chatDate") !== today) {
-    db.set(id, "chatDaily", 0);
-    db.set(id, "chatDate", today);
-  }
-
-  if (now - lastChat > CHAT_CD && db.get(id, "chatDaily") < CHAT_LIMIT) {
+  if (now - lastChat > 8000) {
     db.set(id, "lastChat", now);
-    db.add(id, "points", 5);
-    db.add(id, "chat", 1);
-    db.add(id, "chatDaily", 1);
 
-    if (msg.attachments.size > 0) db.add(id, "points", 10);
-    if (msg.reference) db.add(id, "points", 5);
+    let p = db.get(id, "points");
+    let mult = antiRich(p);
+
+    db.add(id, "points", Math.floor(5 * mult));
+    db.add(id, "chat", 1);
+
+    if (msg.attachments.size > 0)
+      db.add(id, "points", Math.floor(15 * mult));
+
+    if (msg.reference)
+      db.add(id, "points", Math.floor(10 * mult));
   }
 
   if (!msg.content.startsWith(prefix)) return;
 
-  const args = msg.content.slice(1).trim().split(/ +/);
+  const args = msg.content.slice(1).split(/ +/);
   const cmd = args.shift().toLowerCase();
 
   // ===== DAILY =====
   if (cmd === "daily") {
-    const last = db.get(id, "daily") || 0;
+    const last = db.get(id, "daily");
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("daily_btn").setLabel("⏰ Ingatkan Saya").setStyle(ButtonStyle.Primary)
-    );
-
-    if (now - last < DAILY_CD) {
-      return msg.reply({ embeds: [new EmbedBuilder().setDescription("💠 Sudah diambil")], components: [row] });
-    }
+    if (now - last < 86400000)
+      return msg.reply("💠 Sudah claim");
 
     db.set(id, "daily", now);
-    db.add(id, "points", 200);
+    db.add(id, "points", 1000);
 
-    msg.reply({ embeds: [new EmbedBuilder().setDescription("💠 +200 Point")], components: [row] });
+    msg.reply("💠 +1000 AD");
   }
 
   // ===== WEEKLY =====
   if (cmd === "weekly") {
-    const last = db.get(id, "weekly") || 0;
+    const last = db.get(id, "weekly");
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("weekly_btn").setLabel("⏰ Ingatkan Minggu Depan").setStyle(ButtonStyle.Success)
-    );
-
-    if (now - last < WEEKLY_CD) {
-      return msg.reply({ embeds: [new EmbedBuilder().setDescription("💠 Sudah diambil")], components: [row] });
-    }
+    if (now - last < 604800000)
+      return msg.reply("💠 Sudah claim");
 
     db.set(id, "weekly", now);
-    db.add(id, "points", 1000);
+    db.add(id, "points", 3000);
 
-    msg.reply({ embeds: [new EmbedBuilder().setDescription("💠 +1000 Point")], components: [row] });
+    msg.reply("💠 +3000 AD");
   }
 
   // ===== HUNT =====
   if (cmd === "hunt") {
     const last = db.get(id, "hunt");
-    if (now - last < HUNT_CD) return msg.reply("⏳ Tunggu 3 menit");
+
+    if (now - last < 180000)
+      return msg.reply("⏳ Tunggu 3 menit");
 
     db.set(id, "hunt", now);
 
-    const m = await msg.reply("🌲 Masuk hutan...");
+    if (Math.random() < 0.3) {
+      db.add(id, "points", -20);
+      return msg.reply("💀 Diserang 🐍 Ular (-20)");
+    }
 
-    setTimeout(async () => {
-      await m.edit("⚔️ Bertarung...");
-      setTimeout(async () => {
+    const a = animals[Math.floor(Math.random() * animals.length)];
 
-        if (Math.random() < 0.3) {
-          db.add(id, "points", -50);
-          return m.edit("💀 Hewan Buruan Lolos (-50)");
-        }
+    let p = db.get(id, "points");
+    let mult = antiRich(p);
 
-        const a = animals[Math.floor(Math.random() * animals.length)];
-        let p = db.get(id, "points");
+    const reward = Math.floor(a.value * mult);
 
-        let mult = p > 10000 ? 0.5 : p > 5000 ? 0.7 : 1;
-        const reward = Math.floor(a.value * mult);
+    db.add(id, "points", reward);
+    db.add(id, `col_${a.name}`, 1);
 
-        db.add(id, "points", reward);
-        db.add(id, `col_${a.name}`, 1);
-
-        m.edit({
-          embeds: [
-            new EmbedBuilder()
-              .setTitle("🏹 Hunt Berhasil!")
-              .setDescription(`${a.name}\n💰 +${reward}\n✨ ${a.rarity}`)
-              .setImage(a.image)
-          ]
-        });
-
-      }, 2000);
-    }, 2000);
+    msg.reply(`🏹 ${a.name} +${reward}`);
   }
 
   // ===== BALANCE =====
   if (cmd === "balance") {
+    const data = db.all();
+
+    let arr = Object.keys(data).map(u => ({
+      id: u,
+      p: data[u].points || 0
+    }));
+
+    arr.sort((a, b) => b.p - a.p);
+
+    const rank = arr.findIndex(u => u.id === id) + 1;
+
     const p = db.get(id, "points");
 
     msg.reply({
-      embeds: [new EmbedBuilder().setColor("Blue").setTitle("💰 Profile").setDescription(`
-👤 ${msg.author.username}
-🏆 ${rank(p)}
+      embeds: [
+        new EmbedBuilder().setColor("#2B2D31").setDescription(`
+Rank : #${rank}
 
-💬 ${db.get(id, "chat")}
-🔊 ${db.get(id, "voice")}
+💬 Chat: ${db.get(id, "chat")}
+🎤 Voice: ${db.get(id, "voice")}
 
-✨ ${p} point
-`)]
+${LINE}
+💠 ${p} AD
+${LINE}
+`)
+      ]
     });
-  }
-
-  // ===== COLLECTION =====
-  if (cmd === "collection") {
-    let text = "";
-    for (let a of animals) {
-      const c = db.get(id, `col_${a.name}`);
-      if (c > 0) text += `${a.name} x${c}\n`;
-    }
-    if (!text) text = "Belum ada koleksi";
-
-    msg.reply({ embeds: [new EmbedBuilder().setColor("Blue").setColor("Blue").setTitle("🎒 Collection").setDescription(text)] });
   }
 
   // ===== LEADERBOARD =====
@@ -220,67 +168,73 @@ client.on("messageCreate", async (msg) => {
 
     arr.sort((a, b) => b.p - a.p);
 
-    let text = arr.slice(0, 5).map((u, i) =>
-      `#${i + 1} <@${u.id}> - ${u.p}`
+    let top = arr.slice(0, 5).map((u, i) =>
+      `${i + 1}. <@${u.id}> - ${u.p}`
     ).join("\n");
 
     msg.reply({
-      embeds: [new EmbedBuilder().setColor("Blue").setTitle("🏆 Leaderboard").setDescription(text + `\n\n👤 Point Kamu: ${db.get(id, "points")}`)]
+      embeds: [
+        new EmbedBuilder().setDescription(`
+${LINE}
+${top}
+
+${LINE}
+Kamu: ${db.get(id, "points")}
+`)
+      ]
     });
   }
 
-  // ===== ADD (OWNER ONLY) =====
+  // ===== OWNER =====
   if (cmd === "add") {
     if (msg.author.id !== msg.guild.ownerId)
-      return msg.reply("❌ Hanya OWNER server!");
+      return msg.reply("❌ Owner only");
 
     const user = msg.mentions.users.first();
     const amount = parseInt(args[0]);
 
-    if (!user || isNaN(amount))
-      return msg.reply("⚠️ !add @user jumlah");
-
     db.add(user.id, "points", amount);
 
-    msg.reply({
-      embeds: [new EmbedBuilder().setColor("Green").setDescription(`+${amount} ke ${user.username}`)]
-    });
+    msg.reply(`+${amount}`);
   }
 
-  // ===== RESET (OWNER ONLY) =====
   if (cmd === "reset") {
     if (msg.author.id !== msg.guild.ownerId)
-      return msg.reply("❌ Hanya OWNER server!");
+      return msg.reply("❌ Owner only");
 
     const user = msg.mentions.users.first();
-    if (!user) return msg.reply("⚠️ !reset @user");
 
     db.set(user.id, "points", 0);
-    db.set(user.id, "chat", 0);
-    db.set(user.id, "voice", 0);
 
-    msg.reply({
-      embeds: [new EmbedBuilder().setColor("Red").setDescription(`Reset ${user.username}`)]
-    });
+    msg.reply("Reset");
   }
-
 });
 
-// ===== BUTTON =====
-client.on("interactionCreate", async (i) => {
-  if (!i.isButton()) return;
+// ===== VOICE =====
+client.on("voiceStateUpdate", (o, n) => {
+  if (!n.channel) return;
 
-  const id = i.user.id;
+  const members = n.channel.members.filter(m => !m.user.bot);
+  if (members.size < 2) return;
 
-  if (i.customId === "daily_btn") {
-    db.set(id, "daily_remind", Date.now() + 86400000);
-    i.reply({ content: "⏰ Reminder daily aktif!", ephemeral: true });
-  }
+  members.forEach(m => {
+    let p = db.get(m.id, "points");
+    let mult = antiRich(p);
 
-  if (i.customId === "weekly_btn") {
-    db.set(id, "weekly_remind", Date.now() + 604800000);
-    i.reply({ content: "⏰ Reminder weekly aktif!", ephemeral: true });
-  }
+    db.add(m.id, "points", Math.floor(10 * mult));
+    db.add(m.id, "voice", 1);
+  });
+});
+
+// ===== REACTION =====
+client.on("messageReactionAdd", (r, u) => {
+  if (u.bot) return;
+  if (r.message.channel.name !== "announcement") return;
+
+  let p = db.get(u.id, "points");
+  let mult = antiRich(p);
+
+  db.add(u.id, "points", Math.floor(5 * mult));
 });
 
 client.login(process.env.TOKEN);
