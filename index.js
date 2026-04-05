@@ -301,10 +301,10 @@ client.on("messageReactionAdd", (r, u) => {
 
 client.login(process.env.TOKEN);
 
-// ===== AUTO REMINDER PRO LOOP =====
+// ===== AUTO REMINDER PRO LOOP (SAFE) =====
 setInterval(async () => {
-  // Pastikan bot sudah siap
-  if (!client.isReady()) return;
+  if (!client.user) return;
+
   const data = db.all();
   const now = Date.now();
 
@@ -314,20 +314,18 @@ setInterval(async () => {
     try {
       const user = await client.users.fetch(userId);
 
-      // ===== DAILY =====
       if (userData.daily_remind && now >= userData.daily_remind) {
         await user.send("🎁 Daily kamu sudah bisa di claim!");
         db.set(userId, "daily_remind", 0);
       }
 
-      // ===== WEEKLY =====
       if (userData.weekly_remind && now >= userData.weekly_remind) {
         await user.send("🎉 Weekly kamu sudah bisa di claim!");
         db.set(userId, "weekly_remind", 0);
       }
 
     } catch (err) {
-      // user mungkin tidak bisa di DM
+      console.log("Reminder error:", err.message);
     }
   }
-}, 60000); // cek tiap 60 detik
+}, 60000);
