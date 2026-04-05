@@ -1,6 +1,6 @@
 {
-  "name": "vibe-rpg-bot",
-  "version": "3.0.0",
+  "name": "vibe-bot",
+  "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
