@@ -167,7 +167,7 @@ client.on("messageCreate", async (msg) => {
 ** Rank ** : #${rank}
 
 💬 **Chat (Aktivitas)**: ${chat}
-🔊 **Voice (Aktivitas)**: ${voice}
+🎙️ **Voice (Aktivitas)**: ${voice}
 
 👤 **Activity (Point)**: ${format(p)}
 
@@ -182,33 +182,75 @@ ${bar} ${percent}% (Level ${level})
   });
 }
 
-  // ===== LEADERBOARD =====
-  if (cmd === "leaderboard") {
-    const data = db.all();
+if (cmd === "leaderboard") {
+  const data = db.all();
+  const format = (n) => n.toLocaleString("id-ID");
 
-    let arr = Object.keys(data).map(u => ({
-      id: u,
-      p: data[u].points || 0
-    }));
+  // ===== AMBIL DATA =====
+  let arr = Object.keys(data).map(u => ({
+    id: u,
+    chat: data[u].chat || 0,
+    voice: data[u].voice || 0
+  }));
 
-    arr.sort((a, b) => b.p - a.p);
+  // ===== CHAT =====
+  let chatSorted = [...arr].sort((a, b) => b.chat - a.chat);
+  let chatTop = chatSorted.slice(0, 5);
 
-    let top = arr.slice(0, 5).map((u, i) =>
-      `${i + 1}. <@${u.id}> - ${u.p}`
-    ).join("\n");
+  let chatText = await Promise.all(chatTop.map(async (u, i) => {
+    let user;
+    try {
+      user = await client.users.fetch(u.id);
+    } catch {
+      user = { username: "User" };
+    }
 
-    msg.reply({
-      embeds: [
-        new EmbedBuilder().setDescription(`
-${LINE}
-${top}
+    return `**${i + 1}. ${user.username}** ➜ Chat: <:emoji_4:1490319270553325638> ${format(u.chat)}`;
+  }));
 
-${LINE}
-Kamu: ${db.get(id, "points")}
+  const userChatRank = chatSorted.findIndex(u => u.id === id) + 1;
+  const userChat = db.get(id, "chat") || 0;
+
+  // ===== VOICE =====
+  let voiceSorted = [...arr].sort((a, b) => b.voice - a.voice);
+  let voiceTop = voiceSorted.slice(0, 5);
+
+  let voiceText = await Promise.all(voiceTop.map(async (u, i) => {
+    let user;
+    try {
+      user = await client.users.fetch(u.id);
+    } catch {
+      user = { username: "User" };
+    }
+
+    return `**${i + 1}. ${user.username}** ➜ Voice: <:emoji_4:1490319270553325638> ${format(u.voice)}`;
+  }));
+
+  const userVoiceRank = voiceSorted.findIndex(u => u.id === id) + 1;
+  const userVoice = db.get(id, "voice") || 0;
+
+  // ===== EMBED =====
+  msg.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor("#2B2D31")
+        .setTitle("TOP LEADERBOARD")
+        .setThumbnail(msg.guild.iconURL({ dynamic: true }))
+        .setDescription(`
+------------------------------------
+**💬 Chat**
+${chatText.join("\n")}
+
+Rank kamu : #${userChatRank} ➜ Chat: <:emoji_4:1490319270553325638> ${format(userChat)}
+------------------------------------
+**🎙️ Voice**
+${voiceText.join("\n")}
+
+Rank kamu : #${userVoiceRank} ➜ Voice: <:emoji_4:1490319270553325638> ${format(userVoice)}
 `)
-      ]
-    });
-  }
+    ]
+  });
+}
 
   // ===== OWNER =====
   if (cmd === "add") {
