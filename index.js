@@ -347,30 +347,34 @@ client.on("messageReactionAdd", (r, u) => {
 });
 
 // ===== OWNER =====
-  if (cmd === "add") {
-    if (msg.author.id !== msg.guild.ownerId)
-      return msg.reply("❌ Owner only");
+if (cmd === "add") {
+  if (msg.author.id !== msg.guild.ownerId)
+    return msg.reply("❌ Owner only");
 
-    const user = msg.mentions.users.first();
-    const amount = parseInt(args[1]);
+  const user = msg.mentions.users.first();
+  const amount = parseInt(args[1]); // ⬅️ FIX DI SINI
 
-    if (!user || isNaN(amount)) return msg.reply("Format salah");
-
-    db.add(user.id, "points", amount);
-    msg.reply(`+${amount}`);
+  if (!user || isNaN(amount)) {
+    return msg.reply("Format: !add @user 100");
   }
 
-  if (cmd === "reset") {
-    if (msg.author.id !== msg.guild.ownerId)
-      return msg.reply("❌ Owner only");
+  db.add(user.id, "points", amount);
 
-    const user = msg.mentions.users.first();
-    if (!user) return msg.reply("Tag user");
+  msg.reply(`✅ +${amount} point ke ${user.username}`);
+}
 
-    db.set(user.id, "points", 0);
-    msg.reply("Reset berhasil");
-  }
-});
+ if (cmd === "reset") {
+  if (msg.author.id !== msg.guild.ownerId)
+    return msg.reply("❌ Owner only");
+
+  const user = msg.mentions.users.first();
+
+  if (!user) return msg.reply("Format: !reset @user");
+
+  db.set(user.id, "points", 0);
+
+  msg.reply(`✅ Point ${user.username} direset`);
+ }
 
 // ===== LOGIN =====
 client.login(process.env.TOKEN);
