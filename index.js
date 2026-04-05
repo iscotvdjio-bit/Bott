@@ -190,59 +190,8 @@ Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
 💰 +${reward} Point`);
   }
 
-if (cmd === "balance") {
-  const data = db.all();
-
-  let arr = Object.keys(data).map(u => ({
-    id: u,
-    p: data[u].points || 0
-  }));
-
-  arr.sort((a, b) => b.p - a.p);
-  const rank = arr.findIndex(u => u.id === id) + 1;
-
-  const p = db.get(id, "points") || 0;
-  const chat = db.get(id, "chat") || 0;
-  const voice = db.get(id, "voice") || 0;
-
-  const format = (n) => n.toLocaleString("id-ID");
-
-  // ===== WAKTU INDONESIA =====
-  const time = new Date().toLocaleString("id-ID", {
-    day: "numeric",
-    month: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  });
-
-  const LINE = "━━━━━━━━━━━━━━━━━━━━";
-
-  msg.reply({
-    embeds: [
-      new EmbedBuilder()
-        .setColor("#2B2D31")
-        .setTitle(`** Point ** : ${msg.author.username}`)
-        .setThumbnail(msg.author.displayAvatarURL({ dynamic: true }))
-        .setDescription(`
-** Rank ** : #${rank}
-💬 **Chat**: ${chat}
-🎙️ **Voice**: ${voice}
-
-${LINE}
-💸 **Total**: <:emoji_4:1490319270553325638> **${format(p)}** vibepoint
-${LINE}
-<:emoji_4:1490319270553325638> vibepoint | ${time}
-`)
-    ]
-  });
-}
-
-  // ===== LEADERBOARD =====
-  if (cmd === "leaderboard") {
+  if (cmd === "balance") {
     const data = db.all();
-    const format = n => n.toLocaleString("id-ID");
 
     let arr = Object.keys(data).map(u => ({
       id: u,
@@ -250,10 +199,70 @@ ${LINE}
     }));
 
     arr.sort((a, b) => b.p - a.p);
+    const rank = arr.findIndex(u => u.id === id) + 1;
 
-    let top = await Promise.all(arr.slice(0, 5).map(async (u, i) => {
+    const p = db.get(id, "points") || 0;
+    const chat = db.get(id, "chat") || 0;
+    const voice = db.get(id, "voice") || 0;
+
+    const format = (n) => n.toLocaleString("id-ID");
+    const time = new Date().toLocaleString("id-ID");
+
+    const level = Math.floor(p / 100);
+    const current = p % 100;
+    const percent = Math.floor((current / 100) * 100);
+
+    const barLength = 10;
+    const filled = Math.floor((percent / 100) * barLength);
+    const bar = "█".repeat(filled) + "░".repeat(barLength - filled);
+
+    msg.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#2B2D31")
+          .setTitle(`** Point ** : ${msg.author.username}`)
+          .setThumbnail(msg.author.displayAvatarURL({ dynamic: true }))
+          .setDescription(`
+** Rank ** : #${rank}
+
+💬 **Chat (Aktivitas)**: ${chat}
+🎙️ **Voice (Aktivitas)**: ${voice}
+
+👤 **Activity (Point)**: ${format(p)}
+
+${bar} ${percent}% (Level ${level})
+
+━━━━━━━━━━━━━━━━━━━━
+💸 **Total Point**: <:emoji_4:1490319270553325638> **${format(p)}**
+━━━━━━━━━━━━━━━━━━━━
+<:emoji_4:1490319270553325638> vibepoint | ${time}
+`)
+      ]
+    });
+  }
+
+  // ===== LEADERBOARD =====
+  if (cmd === "leaderboard") {
+    const data = db.all();
+    const format = (n) => n.toLocaleString("id-ID");
+
+    let arr = Object.keys(data).map(u => ({
+      id: u,
+      chat: data[u].chat || 0,
+      voice: data[u].voice || 0
+    }));
+
+    let chatSorted = [...arr].sort((a, b) => b.chat - a.chat);
+    let voiceSorted = [...arr].sort((a, b) => b.voice - a.voice);
+
+    let chatTop = await Promise.all(chatSorted.slice(0, 5).map(async (u, i) => {
       let user = await client.users.fetch(u.id).catch(() => null);
-      return `**${i + 1}. ${user?.username || "User"}** ➜ ${format(u.p)}`;
+      return `**${i + 1}. ${user?.username || "User"}** ➜ Chat: ${format(u.chat)}`;
+    }));
+
+    let voiceTop = await Promise.all(voiceSorted.slice(0, 5).map(async (u, i) => {
+      let user = await client.users.fetch(u.id).catch(() => null);
+      return `**${i + 1}. ${user?.username || "User"}** ➜ Voice: ${format(u.voice)}`;
     }));
 
     msg.reply({
@@ -261,17 +270,20 @@ ${LINE}
         new EmbedBuilder()
           .setColor("#2B2D31")
           .setTitle("TOP LEADERBOARD")
-          .setThumbnail(msg.guild.iconURL())
+          .setThumbnail(msg.guild.iconURL({ dynamic: true }))
           .setDescription(`
-${LINE}
-${top.join("\n")}
-${LINE}
+━━━━━━━━━━━━━━━━━━━━
+**💬 Chat**
+${chatTop.join("\n")}
+
+━━━━━━━━━━━━━━━━━━━━
+**🎙️ Voice**
+${voiceTop.join("\n")}
 `)
       ]
     });
-  }
-
-  // ===== COLLECTION =====
+                                                                 }
+ // ===== COLLECTION =====
   if (cmd === "collection") {
     let text = "";
 
