@@ -352,29 +352,26 @@ if (cmd === "add") {
     return msg.reply("❌ Owner only");
 
   const user = msg.mentions.users.first();
-  const amount = parseInt(args[1]); // ⬅️ FIX DI SINI
+  const amount = parseInt(args[1]);
 
-  if (!user || isNaN(amount)) {
+  if (!user || isNaN(amount))
     return msg.reply("Format: !add @user 100");
-  }
 
   db.add(user.id, "points", amount);
+  msg.reply(`✅ +${amount} point ke ${user.username}`
+   );
+  }
 
-  msg.reply(`✅ +${amount} point ke ${user.username}`);
-}
-
- if (cmd === "reset") {
+if (cmd === "reset") {
   if (msg.author.id !== msg.guild.ownerId)
     return msg.reply("❌ Owner only");
 
   const user = msg.mentions.users.first();
-
-  if (!user) return msg.reply("Format: !reset @user");
+  if (!user) return msg.reply("Tag user");
 
   db.set(user.id, "points", 0);
-
-  msg.reply(`✅ Point ${user.username} direset`);
- }
+  msg.reply("✅ Reset berhasil");
+}
 
 // ===== LOGIN =====
 client.login(process.env.TOKEN);
