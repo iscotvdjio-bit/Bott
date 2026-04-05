@@ -39,9 +39,9 @@ const small = n => n.toString().split('').map(x=>"⁰¹²³⁴⁵⁶⁷⁸⁹"[x
 // ===== HEWAN =====
 const animals = [
   { name: "🐦‍⬛ Black Bird", value: 50, chance: 40, rarity: "BASIC" },
-  { name: "🐦 Blue Bird", value: 50, chance: 40, rarity: "BASIC" },
+  { name: "🐦 Red Bird", value: 50, chance: 40, rarity: "BASIC" },
   { name: "🦌 Rusa", value: 150, chance: 10, rarity: "PURE" },
-  { name: "🐯 Harimau", value: 200, chance: 7, rarity: "EVOLVED" },
+  { name: "🐯 Harimau", value: 200, chance: 7, rarity: "BRAVO" },
   { name: "🦁 Singa", value: 500, chance: 3, rarity: "ALPHA" }
 ];
 
