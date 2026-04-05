@@ -346,5 +346,31 @@ client.on("messageReactionAdd", (r, u) => {
   db.add(u.id, "points", Math.floor(5 * antiRich(p)));
 });
 
+// ===== OWNER =====
+  if (cmd === "add") {
+    if (msg.author.id !== msg.guild.ownerId)
+      return msg.reply("❌ Owner only");
+
+    const user = msg.mentions.users.first();
+    const amount = parseInt(args[1]);
+
+    if (!user || isNaN(amount)) return msg.reply("Format salah");
+
+    db.add(user.id, "points", amount);
+    msg.reply(`+${amount}`);
+  }
+
+  if (cmd === "reset") {
+    if (msg.author.id !== msg.guild.ownerId)
+      return msg.reply("❌ Owner only");
+
+    const user = msg.mentions.users.first();
+    if (!user) return msg.reply("Tag user");
+
+    db.set(user.id, "points", 0);
+    msg.reply("Reset berhasil");
+  }
+});
+
 // ===== LOGIN =====
 client.login(process.env.TOKEN);
