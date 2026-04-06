@@ -62,10 +62,14 @@ client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
   const deleteCmd = async () => {
-    try {
-      await msg.delete();
-    } catch {}
-  };
+  try {
+    if (msg.guild && msg.guild.members.me.permissions.has("ManageMessages")) {
+      setTimeout(() => {
+        msg.delete().catch(() => {});
+      }, 800);
+    }
+  } catch {}
+};
 
   const id = msg.author.id;
   const now = Date.now();
@@ -302,7 +306,7 @@ ${voiceTop.join("\n")}
       return msg.reply("❌ Owner only");
 
     const user = msg.mentions.users.first();
-    const amount = parseInt(args[0]);
+    const amount = parseInt(args[1]);
 
     if (!user || isNaN(amount))
       return msg.reply("Format: !add @user 100");
