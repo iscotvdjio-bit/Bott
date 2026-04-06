@@ -330,7 +330,7 @@ ${voiceTop.join("\n")}
 
     for (let a of animals) {
       let count = db.get(id, `col_${a.name}`) || 0;
-      if (count > 0) text += `${a.name}${small(count)} `;
+      if (count > 0) text += `${a.name}${small(count)}\n`;
     }
 
     msg.reply({
