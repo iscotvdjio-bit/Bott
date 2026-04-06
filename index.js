@@ -66,7 +66,7 @@ client.on("messageCreate", async (msg) => {
     if (msg.guild && msg.guild.members.me.permissions.has("ManageMessages")) {
       setTimeout(() => {
         msg.delete().catch(() => {});
-      }, 800);
+      }, 1200);
     }
   } catch {}
 };
@@ -97,11 +97,20 @@ client.on("messageCreate", async (msg) => {
     }
   }
 
-  // ===== COMMAND =====
-  if (!msg.content.startsWith(prefix)) return;
+// ===== COMMAND =====
+if (!msg.content.startsWith(prefix)) return;
 
-  const args = msg.content.slice(prefix.length).trim().split(/ +/);
-  const cmd = args.shift().toLowerCase();
+const args = msg.content.slice(prefix.length).trim().split(/ +/);
+const cmd = args.shift().toLowerCase();
+
+// ===== COOLDOWN COMMAND =====
+const cmd_cd = db.get(id, "cmd_cd") || 0;
+
+if (Date.now() - cmd_cd < 1000) {
+  return msg.reply("⏳ Jangan spam command");
+}
+
+db.set(id, "cmd_cd", Date.now());
 
   // ===== DAILY =====
   if (cmd === "daily") {
