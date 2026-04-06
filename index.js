@@ -39,21 +39,33 @@ const small = n => n.toString().split('').map(x=>"⁰¹²³⁴⁵⁶⁷⁸⁹"[x
 // ===== HEWAN =====
 const animals = [
   { name: "🐦‍⬛ Black Bird", value: 50, chance: 40, rarity: "BASIC" },
-  { name: "🐦 Red Bird", value: 50, chance: 40, rarity: "BASIC" },
-  { name: "🦌 Rusa", value: 150, chance: 10, rarity: "PURE" },
+  { name: "🐰 Kelinci", value: 50, chance: 40, rarity: "BASIC" },
+  { name: "🦇 Kelelawar", value: 50, chance: 40, rarity: "BASIC" },
+  { name: "🐗 Babi Hutan", value: 150, chance: 10, rarity: "PURE" },
+  { name: "🦅 Elang", value: 150, chance: 10, rarity: "PURE" },
+  { name: "🐒 Monyet", value: 150, chance: 10, rarity: "PURE" },
   { name: "🐯 Harimau", value: 200, chance: 7, rarity: "BRAVO" },
-  { name: "🦁 Singa", value: 500, chance: 3, rarity: "ALPHA" }
+  { name: "🐻 Beruang", value: 200, chance: 7, rarity: "BRAVO" },
+  { name: "🐺 Serigala", value: 200, chance: 7, rarity: "BRAVO" },
+  { name: "🐼 Panda", value: 500, chance: 3, rarity: "ALPHA" }, 
+  { name: "🦁 Singa", value: 500, chance: 3, rarity: "ALPHA" }, 
+  { name: "🐯 Harimau", value: 500, chance: 3, rarity: "ALPHA" } 
 ];
 
 // ===== RANDOM =====
 function getAnimal() {
-  const rand = Math.random() * 100;
-  let total = 0;
+  // total semua chance
+  const totalChance = animals.reduce((sum, a) => sum + a.chance, 0);
+
+  const rand = Math.random() * totalChance;
+  let cumulative = 0;
 
   for (let a of animals) {
-    total += a.chance;
-    if (rand <= total) return a;
+    cumulative += a.chance;
+    if (rand <= cumulative) return a;
   }
+
+  // fallback (seharusnya jarang kena)
   return animals[0];
 }
 
