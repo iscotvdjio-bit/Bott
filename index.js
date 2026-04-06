@@ -61,6 +61,12 @@ function getAnimal() {
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
+  const deleteCmd = async () => {
+    try {
+      await msg.delete();
+    } catch {}
+  };
+
   const id = msg.author.id;
   const now = Date.now();
 
@@ -95,6 +101,7 @@ client.on("messageCreate", async (msg) => {
 
   // ===== DAILY =====
   if (cmd === "daily") {
+    deleteCmd();
     const last = db.get(id, "daily") || 0;
 
     const row = new ActionRowBuilder().addComponents(
@@ -125,6 +132,7 @@ Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
 
   // ===== WEEKLY =====
   if (cmd === "weekly") {
+    deleteCmd();
     const last = db.get(id, "weekly") || 0;
 
     const row = new ActionRowBuilder().addComponents(
@@ -155,6 +163,7 @@ Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
 
   // ===== HUNT (ANIMASI) =====
   if (cmd === "hunt") {
+    deleteCmd();
     const last = db.get(id, "hunt") || 0;
 
     if (now - last < 180000)
@@ -191,6 +200,7 @@ Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
   }
 
   if (cmd === "balance") {
+    deleteCmd();
     const data = db.all();
 
     let arr = Object.keys(data).map(u => ({
@@ -243,6 +253,7 @@ ${bar} ${percent}% (Level ${level})
 
   // ===== LEADERBOARD =====
   if (cmd === "leaderboard") {
+    deleteCmd();
     const data = db.all();
     const format = (n) => n.toLocaleString("id-ID");
 
@@ -286,6 +297,7 @@ ${voiceTop.join("\n")}
 
   // ===== OWNER =====
   if (cmd === "add") {
+    deleteCmd();
     if (msg.author.id !== msg.guild.ownerId)
       return msg.reply("❌ Owner only");
 
@@ -300,6 +312,7 @@ ${voiceTop.join("\n")}
   }
 
   if (cmd === "reset") {
+    deleteCmd();
     if (msg.author.id !== msg.guild.ownerId)
       return msg.reply("❌ Owner only");
 
@@ -312,6 +325,7 @@ ${voiceTop.join("\n")}
 
  // ===== COLLECTION =====
   if (cmd === "collection") {
+    deleteCmd();
     let text = "";
 
     for (let a of animals) {
@@ -323,7 +337,7 @@ ${voiceTop.join("\n")}
       embeds: [
         new EmbedBuilder()
           .setColor("#2B2D31")
-          .setTitle("## LIST HEWAN BURUAN")
+          .setTitle("LIST HEWAN BURUAN")
           .setThumbnail(msg.author.displayAvatarURL())
           .setDescription(`Pemburu: **${msg.author.username}**
 
