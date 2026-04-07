@@ -462,6 +462,28 @@ setInterval(async () => {
   }
 }, 120000);
 
+// ===== PROCESS DM QUEUE =====
+setInterval(async () => {
+  if (dmQueue.length === 0) return;
+
+  const data = dmQueue.shift();
+
+  try {
+    let user = client.users.cache.get(data.id);
+
+    if (!user) {
+      user = await client.users.fetch(data.id).catch(() => null);
+    }
+
+    if (!user) return;
+
+    await user.send(data.message).catch(() => {});
+  } catch (e) {
+    console.log("Queue DM Error:", e.message);
+  }
+
+}, 1000); 
+
 // ===== ERROR HANDLER =====
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
