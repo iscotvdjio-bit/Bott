@@ -383,34 +383,46 @@ client.on("interactionCreate", async (i) => {
 
   const id = i.user.id;
 
-  if (i.customId === "daily_remind") {
-  const time = Date.now() + 86400000;
+  const createReminder = (type, duration, message) => {
+    const time = Date.now() + duration;
 
-  db.set(id, "daily_remind", time);
+    db.set(id, `${type}_remind`, time);
 
-  schedule.push({
-    id: id,
-    time: time,
-    message: "🎁 Daily ready!"
-  });
-
-  return i.reply({ content: "⏰ Daily diingatkan!", ephemeral: true });
-}
-
-if (i.customId === "weekly_remind") {
-  const time = Date.now() + 604800000;
-
-  db.set(id, "weekly_remind", time);
-
-  schedule.push({
-    id: id,
-    time: time,
-    message: "🎉 Weekly ready!"
-  });
-
-  return i.reply({ content: "⏰ Weekly diingatkan!", ephemeral: true });
+    // hapus schedule lama (hanya type itu)
+    for (let i = 0; i < schedule.length; i++) {
+      if (schedule[i].id === id && schedule[i].type === type) {
+        schedule.splice(i, 1);
+        i--;
+      }
     }
 
+    schedule.push({
+      id: id,
+      time: time,
+      message: message,
+      type: type
+    });
+  };
+
+  if (i.customId === "daily_remind") {
+    createReminder("daily", 86400000, "🎁 Daily ready!");
+
+    return i.reply({
+      content: "⏰ Daily berhasil diingatkan!",
+      ephemeral: true
+    });
+  }
+
+  if (i.customId === "weekly_remind") {
+    createReminder("weekly", 604800000, "🎉 Weekly ready!");
+
+    return i.reply({
+      content: "⏰ Weekly berhasil diingatkan!",
+      ephemeral: true
+    });
+  }
+});
+ 
 // ===== VOICE =====
 client.on("voiceStateUpdate", (o, n) => {
   if (!n.channel) return;
