@@ -10,6 +10,8 @@ const {
 
 const db = require("./database");
 
+const dmQueue = [];
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -422,21 +424,18 @@ client.on("messageReactionAdd", (r, u) => {
 });
 
 // ===== AUTO DM =====
-setInterval(async () => {
+setInterval(() => {
   const data = db.all();
   const now = Date.now();
 
+  let count = 0;
+
   for (let id in data) {
+    if (count >= 50) break; // max 50 user per loop
+    count++;
+
     try {
       if (!data[id].daily_remind && !data[id].weekly_remind) continue;
-
-      let user = client.users.cache.get(id);
-
-      if (!user) {
-        user = await client.users.fetch(id).catch(() => null);
-      }
-
-      if (!user) continue;
 
       let msg = [];
 
@@ -451,10 +450,13 @@ setInterval(async () => {
       }
 
       if (msg.length > 0) {
-        user.send(msg.join("\n")).catch(() => {});
-      }
+        if (dmQueue.length > 1000) continue; // anti overload
 
-      await new Promise(r => setTimeout(r, 500));
+        dmQueue.push({
+          id: id,
+          message: msg.join("\n")
+        });
+      }
 
     } catch (e) {
       console.log("DM Error:", e.message);
@@ -482,7 +484,7 @@ setInterval(async () => {
     console.log("Queue DM Error:", e.message);
   }
 
-}, 1000); 
+}, 700); 
 
 // ===== ERROR HANDLER =====
 process.on("unhandledRejection", console.error);
