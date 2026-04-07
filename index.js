@@ -11,6 +11,7 @@ const {
 const db = require("./database");
 
 const dmQueue = [];
+const schedule = [];
 
 const client = new Client({
   intents: [
@@ -383,15 +384,32 @@ client.on("interactionCreate", async (i) => {
   const id = i.user.id;
 
   if (i.customId === "daily_remind") {
-    db.set(id, "daily_remind", Date.now() + 86400000);
-    return i.reply({ content: "⏰ Daily diingatkan!", ephemeral: true });
-  }
+  const time = Date.now() + 86400000;
 
-  if (i.customId === "weekly_remind") {
-    db.set(id, "weekly_remind", Date.now() + 604800000);
-    return i.reply({ content: "⏰ Weekly diingatkan!", ephemeral: true });
-  }
-});
+  db.set(id, "daily_remind", time);
+
+  schedule.push({
+    id: id,
+    time: time,
+    message: "🎁 Daily ready!"
+  });
+
+  return i.reply({ content: "⏰ Daily diingatkan!", ephemeral: true });
+}
+
+if (i.customId === "weekly_remind") {
+  const time = Date.now() + 604800000;
+
+  db.set(id, "weekly_remind", time);
+
+  schedule.push({
+    id: id,
+    time: time,
+    message: "🎉 Weekly ready!"
+  });
+
+  return i.reply({ content: "⏰ Weekly diingatkan!", ephemeral: true });
+    }
 
 // ===== VOICE =====
 client.on("voiceStateUpdate", (o, n) => {
@@ -423,46 +441,26 @@ client.on("messageReactionAdd", (r, u) => {
   db.add(u.id, "points", Math.floor(5 * antiRich(p)));
 });
 
-// ===== AUTO DM =====
+// ===== SCHEDULER PROCESS =====
 setInterval(() => {
-  const data = db.all();
   const now = Date.now();
 
-  let count = 0;
+  for (let i = 0; i < schedule.length; i++) {
+    const item = schedule[i];
 
-  for (let id in data) {
-    if (count >= 50) break; // max 50 user per loop
-    count++;
-
-    try {
-      if (!data[id].daily_remind && !data[id].weekly_remind) continue;
-
-      let msg = [];
-
-      if (data[id].daily_remind && now >= data[id].daily_remind) {
-        msg.push("🎁 Daily ready!");
-        db.set(id, "daily_remind", 0);
-      }
-
-      if (data[id].weekly_remind && now >= data[id].weekly_remind) {
-        msg.push("🎉 Weekly ready!");
-        db.set(id, "weekly_remind", 0);
-      }
-
-      if (msg.length > 0) {
-        if (dmQueue.length > 1000) continue; // anti overload
-
+    if (now >= item.time) {
+      if (dmQueue.length < 1000) {
         dmQueue.push({
-          id: id,
-          message: msg.join("\n")
+          id: item.id,
+          message: item.message
         });
       }
 
-    } catch (e) {
-      console.log("DM Error:", e.message);
+      schedule.splice(i, 1);
+      i--;
     }
   }
-}, 120000);
+}, 5000);
 
 // ===== PROCESS DM QUEUE =====
 setInterval(async () => {
@@ -484,7 +482,33 @@ setInterval(async () => {
     console.log("Queue DM Error:", e.message);
   }
 
-}, 700); 
+}, 700);
+
+// ===== READY (RESTORE SCHEDULE) =====
+client.once("ready", () => {
+  console.log(`✅ Bot aktif sebagai ${client.user.tag}`);
+
+  const data = db.all();
+  const now = Date.now();
+
+  for (let id in data) {
+    if (data[id].daily_remind && data[id].daily_remind > now) {
+      schedule.push({
+        id: id,
+        time: data[id].daily_remind,
+        message: "🎁 Daily ready!"
+      });
+    }
+
+    if (data[id].weekly_remind && data[id].weekly_remind > now) {
+      schedule.push({
+        id: id,
+        time: data[id].weekly_remind,
+        message: "🎉 Weekly ready!"
+      });
+    }
+  }
+});
 
 // ===== ERROR HANDLER =====
 process.on("unhandledRejection", console.error);
