@@ -397,9 +397,16 @@ client.on("voiceStateUpdate", (o, n) => {
   if (members.size < 2) return;
 
   members.forEach(m => {
+    const last = db.get(m.id, "voice_cd") || 0;
+
+    // cooldown 1 menit
+    if (Date.now() - last < 60000) return;
+
     let p = db.get(m.id, "points") || 0;
+
     db.add(m.id, "points", Math.floor(10 * antiRich(p)));
     db.add(m.id, "voice", 1);
+    db.set(m.id, "voice_cd", Date.now());
   });
 });
 
