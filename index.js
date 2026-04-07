@@ -412,5 +412,53 @@ client.on("messageReactionAdd", (r, u) => {
   db.add(u.id, "points", Math.floor(5 * antiRich(p)));
 });
 
+// ===== AUTO DM REMINDER =====
+setInterval(async () => {
+  if (!client.user) return;
+
+  const data = db.all();
+  const now = Date.now();
+
+  for (let userId in data) {
+    const userData = data[userId];
+
+    try {
+      const user = await client.users.fetch(userId);
+
+      // ===== DAILY =====
+      if (userData.daily_remind && now >= userData.daily_remind) {
+        await user.send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor("#57F287")
+              .setTitle("🎁 Daily Ready!")
+              .setDescription("Daily kamu sudah bisa di claim!\nKetik `!daily` sekarang 🚀")
+          ]
+        });
+
+        db.set(userId, "daily_remind", 0);
+      }
+
+      // ===== WEEKLY =====
+      if (userData.weekly_remind && now >= userData.weekly_remind) {
+        await user.send({
+          embeds: [
+            new EmbedBuilder()
+              .setColor("#FEE75C")
+              .setTitle("🎉 Weekly Ready!")
+              .setDescription("Weekly kamu sudah bisa di claim!\nKetik `!weekly` sekarang 🚀")
+          ]
+        });
+
+        db.set(userId, "weekly_remind", 0);
+      }
+
+    } catch {
+      // kalau DM mati / error -> skip aja biar tidak crash
+    }
+  }
+
+}, 60000); // cek tiap 1 menit
+
 // ===== LOGIN =====
 client.login(process.env.TOKEN);
