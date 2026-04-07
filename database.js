@@ -6,9 +6,10 @@ if (fs.existsSync("./database.json")) {
   db = JSON.parse(fs.readFileSync("./database.json"));
 }
 
-function save() {
+// ===== AUTO SAVE TIAP 5 DETIK =====
+setInterval(() => {
   fs.writeFileSync("./database.json", JSON.stringify(db, null, 2));
-}
+}, 5000);
 
 module.exports = {
   get(id, key) {
@@ -19,13 +20,11 @@ module.exports = {
   set(id, key, value) {
     if (!db[id]) db[id] = {};
     db[id][key] = value;
-    save();
   },
 
   add(id, key, value) {
     if (!db[id]) db[id] = {};
     db[id][key] = (db[id][key] || 0) + value;
-    save();
   },
 
   all() {
