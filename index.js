@@ -419,22 +419,40 @@ setInterval(async () => {
 
   for (let id in data) {
     try {
-      const user = await client.users.fetch(id);
+      if (!data[id].daily_remind && !data[id].weekly_remind) continue;
+
+      let user = client.users.cache.get(id);
+
+      if (!user) {
+        user = await client.users.fetch(id).catch(() => null);
+      }
+
+      if (!user) continue;
+
+      let msg = [];
 
       if (data[id].daily_remind && now >= data[id].daily_remind) {
-        user.send("🎁 Daily ready!");
+        msg.push("🎁 Daily ready!");
         db.set(id, "daily_remind", 0);
       }
 
       if (data[id].weekly_remind && now >= data[id].weekly_remind) {
-        user.send("🎉 Weekly ready!");
+        msg.push("🎉 Weekly ready!");
         db.set(id, "weekly_remind", 0);
       }
 
-    } catch {}
+      if (msg.length > 0) {
+        user.send(msg.join("\n")).catch(() => {});
+      }
+
+      await new Promise(r => setTimeout(r, 500));
+
+    } catch (e) {
+      console.log("DM Error:", e.message);
+    }
   }
 }, 60000);
-  
+
 // ===== ERROR HANDLER =====
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
