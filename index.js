@@ -44,7 +44,7 @@ const animals = [
   { name: "🐗 Babi Hutan", value: 150, chance: 10, rarity: "PURE" },
   { name: "🦅 Elang", value: 150, chance: 10, rarity: "PURE" },
   { name: "🐒 Monyet", value: 150, chance: 10, rarity: "PURE" },
-  { name: "🐯 Harimau", value: 200, chance: 7, rarity: "BRAVO" },
+  { name: "🐴 Kuda", value: 200, chance: 7, rarity: "BRAVO" },
   { name: "🐻 Beruang", value: 200, chance: 7, rarity: "BRAVO" },
   { name: "🐺 Serigala", value: 200, chance: 7, rarity: "BRAVO" },
   { name: "🐼 Panda", value: 500, chance: 3, rarity: "ALPHA" }, 
