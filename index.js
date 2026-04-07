@@ -460,7 +460,7 @@ setInterval(async () => {
       console.log("DM Error:", e.message);
     }
   }
-}, 60000);
+}, 120000);
 
 // ===== ERROR HANDLER =====
 process.on("unhandledRejection", console.error);
