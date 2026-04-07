@@ -49,44 +49,39 @@ const animals = [
   { name: "🐺 Serigala", value: 200, chance: 7, rarity: "BRAVO" },
   { name: "🐼 Panda", value: 500, chance: 3, rarity: "ALPHA" }, 
   { name: "🦁 Singa", value: 500, chance: 3, rarity: "ALPHA" }, 
-  { name: "🐯 Harimau", value: 500, chance: 3, rarity: "ALPHA" } 
+  { name: "🐯 Harimau Alpha", value: 500, chance: 3, rarity: "ALPHA" }
 ];
 
 // ===== RANDOM =====
 function getAnimal() {
-  // total semua chance
   const totalChance = animals.reduce((sum, a) => sum + a.chance, 0);
-
   const rand = Math.random() * totalChance;
-  let cumulative = 0;
 
+  let cumulative = 0;
   for (let a of animals) {
     cumulative += a.chance;
     if (rand <= cumulative) return a;
   }
 
-  // fallback (seharusnya jarang kena)
   return animals[0];
-}
+   }
 
 // ===== MESSAGE =====
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
   const deleteCmd = async () => {
-  try {
-    if (msg.guild && msg.guild.members.me.permissions.has("ManageMessages")) {
-      setTimeout(() => {
-        msg.delete().catch(() => {});
-      }, 1200);
-    }
-  } catch {}
-};
+    try {
+      if (msg.guild && msg.guild.members.me.permissions.has("ManageMessages")) {
+        setTimeout(() => msg.delete().catch(() => {}), 800);
+      }
+    } catch {}
+  };
 
   const id = msg.author.id;
   const now = Date.now();
 
-  // ===== POINT CHAT =====
+   // ===== POINT CHAT =====
   if (!msg.content.startsWith(prefix)) {
     let last = db.get(id, "chat_cd") || 0;
 
@@ -98,14 +93,19 @@ client.on("messageCreate", async (msg) => {
     }
   }
 
-  // ===== POINT MEDIA =====
+// ===== POINT MEDIA (ANTI SPAM) =====
   if (msg.attachments.size > 0) {
     let last = db.get(id, "media_cd") || 0;
+    let lastUrl = db.get(id, "last_media");
+    const currentUrl = msg.attachments.first().url;
+
+    if (currentUrl === lastUrl) return;
 
     if (now - last > 15000) {
       let p = db.get(id, "points") || 0;
       db.add(id, "points", Math.floor(15 * antiRich(p)));
       db.set(id, "media_cd", now);
+      db.set(id, "last_media", currentUrl);
     }
   }
 
@@ -153,7 +153,7 @@ Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
       ],
       components: [row]
     });
-  }
+}
 
   // ===== WEEKLY =====
   if (cmd === "weekly") {
@@ -412,53 +412,32 @@ client.on("messageReactionAdd", (r, u) => {
   db.add(u.id, "points", Math.floor(5 * antiRich(p)));
 });
 
-// ===== AUTO DM REMINDER =====
+// ===== AUTO DM =====
 setInterval(async () => {
-  if (!client.user) return;
-
   const data = db.all();
   const now = Date.now();
 
-  for (let userId in data) {
-    const userData = data[userId];
-
+  for (let id in data) {
     try {
-      const user = await client.users.fetch(userId);
+      const user = await client.users.fetch(id);
 
-      // ===== DAILY =====
-      if (userData.daily_remind && now >= userData.daily_remind) {
-        await user.send({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#57F287")
-              .setTitle("🎁 Daily Ready!")
-              .setDescription("Daily kamu sudah bisa di claim!\nKetik `!daily` sekarang 🚀")
-          ]
-        });
-
-        db.set(userId, "daily_remind", 0);
+      if (data[id].daily_remind && now >= data[id].daily_remind) {
+        user.send("🎁 Daily ready!");
+        db.set(id, "daily_remind", 0);
       }
 
-      // ===== WEEKLY =====
-      if (userData.weekly_remind && now >= userData.weekly_remind) {
-        await user.send({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("#FEE75C")
-              .setTitle("🎉 Weekly Ready!")
-              .setDescription("Weekly kamu sudah bisa di claim!\nKetik `!weekly` sekarang 🚀")
-          ]
-        });
-
-        db.set(userId, "weekly_remind", 0);
+      if (data[id].weekly_remind && now >= data[id].weekly_remind) {
+        user.send("🎉 Weekly ready!");
+        db.set(id, "weekly_remind", 0);
       }
 
-    } catch {
-      // kalau DM mati / error -> skip aja biar tidak crash
-    }
+    } catch {}
   }
-
-}, 60000); // cek tiap 1 menit
-
+}, 60000);
+  
+// ===== ERROR HANDLER =====
+process.on("unhandledRejection", console.error);
+process.on("uncaughtException", console.error);
+  
 // ===== LOGIN =====
 client.login(process.env.TOKEN);
