@@ -453,11 +453,16 @@ client.on("messageReactionAdd", (r, u) => {
   db.add(u.id, "points", Math.floor(5 * antiRich(p)));
 });
 
-// ===== SCHEDULER PROCESS =====
+// ===== SCHEDULER PROCESS (OPTIMIZED) =====
 setInterval(() => {
   const now = Date.now();
 
+  let count = 0;
+
   for (let i = 0; i < schedule.length; i++) {
+    if (count >= 50) break; // batasi per loop biar ringan
+    count++;
+
     const item = schedule[i];
 
     if (now >= item.time) {
@@ -472,7 +477,7 @@ setInterval(() => {
       i--;
     }
   }
-}, 5000);
+}, 2000);
 
 // ===== PROCESS DM QUEUE =====
 setInterval(async () => {
@@ -494,11 +499,13 @@ setInterval(async () => {
     console.log("Queue DM Error:", e.message);
   }
 
-}, 700);
+}, 700); // 0.7 detik per DM (AMAN)
 
 // ===== READY (RESTORE SCHEDULE) =====
 client.once("ready", () => {
   console.log(`✅ Bot aktif sebagai ${client.user.tag}`);
+
+  schedule.length = 0; // ❗ FIX: hapus schedule lama (anti duplicate)
 
   const data = db.all();
   const now = Date.now();
@@ -508,7 +515,8 @@ client.once("ready", () => {
       schedule.push({
         id: id,
         time: data[id].daily_remind,
-        message: "🎁 Daily ready!"
+        message: "🎁 Daily ready!",
+        type: "daily" // ❗ FIX: tambah type
       });
     }
 
@@ -516,7 +524,8 @@ client.once("ready", () => {
       schedule.push({
         id: id,
         time: data[id].weekly_remind,
-        message: "🎉 Weekly ready!"
+        message: "🎉 Weekly ready!",
+        type: "weekly" // ❗ FIX: tambah type
       });
     }
   }
