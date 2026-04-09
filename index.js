@@ -86,6 +86,8 @@ client.on("messageCreate", async (msg) => {
   const id = msg.author.id;
   const now = Date.now();
 
+  db.set(id, "username", msg.author.username);
+
    // ===== POINT CHAT =====
   if (!msg.content.startsWith(prefix)) {
     let last = db.get(id, "chat_cd") || 0;
@@ -282,37 +284,58 @@ ${bar} ${percent}% (Level ${level})
   }
 
   // ===== LEADERBOARD =====
-  if (cmd === "leaderboard") {
-    deleteCmd();
-    const data = db.all();
-    const format = (n) => n.toLocaleString("id-ID");
+if (cmd === "leaderboard") {
+  deleteCmd();
 
-    let arr = Object.keys(data).map(u => ({
-      id: u,
-      chat: data[u].chat || 0,
-      voice: data[u].voice || 0
-    }));
+  const data = db.all();
+  const format = (n) => n.toLocaleString("id-ID");
 
-    let chatSorted = [...arr].sort((a, b) => b.chat - a.chat);
-    let voiceSorted = [...arr].sort((a, b) => b.voice - a.voice);
+  let arr = Object.keys(data).map(u => ({
+    id: u,
+    chat: data[u].chat || 0,
+    voice: data[u].voice || 0
+  }));
 
-    let chatTop = await Promise.all(chatSorted.slice(0, 5).map(async (u, i) => {
-      let user = await client.users.fetch(u.id).catch(() => null);
-      return `**${i + 1}. ${user?.username || "User"}** ➜ Chat: ${format(u.chat)}`;
-    }));
+  let chatSorted = arr.sort((a, b) => b.chat - a.chat).slice(0, 5);
+  let voiceSorted = arr.sort((a, b) => b.voice - a.voice).slice(0, 5);
 
-    let voiceTop = await Promise.all(voiceSorted.slice(0, 5).map(async (u, i) => {
-      let user = await client.users.fetch(u.id).catch(() => null);
-      return `**${i + 1}. ${user?.username || "User"}** ➜ Voice: ${format(u.voice)}`;
-    }));
+  const getName = async (id) => {
+    let user = client.users.cache.get(id);
 
-    msg.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#2B2D31")
-          .setTitle("TOP LEADERBOARD")
-          .setThumbnail(msg.guild.iconURL({ dynamic: true }))
-          .setDescription(`
+    if (!user) {
+      user = await client.users.fetch(id).catch(() => null);
+    }
+
+    return user ? user.username : "Unknown";
+  };
+
+  let chatTop = [];
+  for (let i = 0; i < chatSorted.length; i++) {
+    const u = chatSorted[i];
+    const name = await getName(u.id);
+
+    chatTop.push(
+      `**${i + 1}. ${name}** ➜ Chat: ${format(u.chat)}`
+    );
+  }
+
+  let voiceTop = [];
+  for (let i = 0; i < voiceSorted.length; i++) {
+    const u = voiceSorted[i];
+    const name = await getName(u.id);
+
+    voiceTop.push(
+      `**${i + 1}. ${name}** ➜ Voice: ${format(u.voice)}`
+    );
+  }
+
+  msg.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor("#2B2D31")
+        .setTitle("TOP LEADERBOARD")
+        .setThumbnail(msg.guild.iconURL({ dynamic: true }))
+        .setDescription(`
 ━━━━━━━━━━━━━━━━━━━━
 **💬 Chat**
 ${chatTop.join("\n")}
@@ -321,9 +344,9 @@ ${chatTop.join("\n")}
 **🎙️ Voice**
 ${voiceTop.join("\n")}
 `)
-      ]
-    });
-    }
+    ]
+  });
+}
 
   // ===== OWNER =====
   if (cmd === "add") {
