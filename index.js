@@ -13,6 +13,9 @@ const db = require("./database");
 const dmQueue = [];
 const schedule = [];
 
+// Track siapa yang sedang di voice channel dan kapan join
+const voiceTracker = new Map(); // userId -> joinedAt (timestamp)
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -25,7 +28,6 @@ const client = new Client({
 });
 
 const prefix = "!";
-const LINE = "━━━━━━━━━━━━━━━━━━━━";
 
 // ===== ANTI KAYA =====
 function antiRich(points) {
@@ -37,7 +39,7 @@ function antiRich(points) {
 }
 
 // ===== ANGKA KECIL =====
-const small = n => n.toString().split('').map(x=>"⁰¹²³⁴⁵⁶⁷⁸⁹"[x]).join("");
+const small = n => n.toString().split('').map(x => "⁰¹²³⁴⁵⁶⁷⁸⁹"[x]).join("");
 
 // ===== HEWAN =====
 const animals = [
@@ -50,90 +52,102 @@ const animals = [
   { name: "🐴 Kuda", value: 200, chance: 7, rarity: "BRAVO" },
   { name: "🐻 Beruang", value: 200, chance: 7, rarity: "BRAVO" },
   { name: "🐺 Serigala", value: 200, chance: 7, rarity: "BRAVO" },
-  { name: "🐼 Panda", value: 500, chance: 3, rarity: "ALPHA" }, 
-  { name: "🦁 Singa", value: 500, chance: 3, rarity: "ALPHA" }, 
+  { name: "🐼 Panda", value: 500, chance: 3, rarity: "ALPHA" },
+  { name: "🦁 Singa", value: 500, chance: 3, rarity: "ALPHA" },
   { name: "🐯 Harimau Alpha", value: 500, chance: 3, rarity: "ALPHA" }
 ];
 
-// ===== RANDOM =====
+// ===== RANDOM ANIMAL =====
 function getAnimal() {
   const totalChance = animals.reduce((sum, a) => sum + a.chance, 0);
   const rand = Math.random() * totalChance;
 
   let cumulative = 0;
-  for (let a of animals) {
+  for (const a of animals) {
     cumulative += a.chance;
     if (rand <= cumulative) return a;
   }
 
   return animals[0];
-   }
+}
 
-// ===== MESSAGE =====
-client.on("messageCreate", async (msg) => {
-  if (msg.author.bot) return;
-
-  const deleteCmd = async () => {
-  if (!msg.guild) return; 
-
+// ===== DELETE COMMAND HELPER =====
+// FIX: Dipindah keluar dari event handler agar tidak re-deklarasi setiap pesan
+async function deleteCmd(msg) {
+  if (!msg.guild) return;
   try {
     if (msg.guild.members.me.permissions.has("ManageMessages")) {
       setTimeout(() => msg.delete().catch(() => {}), 800);
     }
   } catch {}
-};
+}
+
+// ===== SCHEDULE REMINDER (FIX: prevent duplicate) =====
+function createReminder(userId, type, duration, message) {
+  const time = Date.now() + duration;
+
+  db.set(userId, `${type}_remind`, time);
+
+  // Hapus schedule lama untuk user & type yang sama
+  for (let i = schedule.length - 1; i >= 0; i--) {
+    if (schedule[i].id === userId && schedule[i].type === type) {
+      schedule.splice(i, 1);
+    }
+  }
+
+  schedule.push({ id: userId, time, message, type });
+}
+
+// ===== MESSAGE =====
+client.on("messageCreate", async (msg) => {
+  if (msg.author.bot) return;
 
   const id = msg.author.id;
   const now = Date.now();
 
   db.set(id, "username", msg.author.username);
 
-   // ===== POINT CHAT =====
+  // ===== POINT CHAT =====
   if (!msg.content.startsWith(prefix)) {
-    let last = db.get(id, "chat_cd") || 0;
+    const last = db.get(id, "chat_cd") || 0;
 
     if (now - last > 5000) {
-      let p = db.get(id, "points") || 0;
+      const p = db.get(id, "points") || 0;
       db.add(id, "points", Math.floor(5 * antiRich(p)));
       db.add(id, "chat", 1);
       db.set(id, "chat_cd", now);
     }
+    return; // Bukan command, stop di sini
   }
 
-// ===== POINT MEDIA (ANTI SPAM) =====
+  // ===== POINT MEDIA (ANTI SPAM) =====
   if (msg.attachments.size > 0) {
-    let last = db.get(id, "media_cd") || 0;
-    let lastUrl = db.get(id, "last_media");
+    const last = db.get(id, "media_cd") || 0;
+    const lastUrl = db.get(id, "last_media");
     const currentUrl = msg.attachments.first().url;
 
-    if (currentUrl === lastUrl) return;
-
-    if (now - last > 15000) {
-      let p = db.get(id, "points") || 0;
+    if (currentUrl !== lastUrl && now - last > 15000) {
+      const p = db.get(id, "points") || 0;
       db.add(id, "points", Math.floor(15 * antiRich(p)));
       db.set(id, "media_cd", now);
       db.set(id, "last_media", currentUrl);
     }
   }
 
-// ===== COMMAND =====
-if (!msg.content.startsWith(prefix)) return;
+  // ===== PARSE COMMAND =====
+  const args = msg.content.slice(prefix.length).trim().split(/ +/);
+  const cmd = args.shift().toLowerCase();
 
-const args = msg.content.slice(prefix.length).trim().split(/ +/);
-const cmd = args.shift().toLowerCase();
-
-// ===== COOLDOWN COMMAND =====
-const cmd_cd = db.get(id, "cmd_cd") || 0;
-
-if (Date.now() - cmd_cd < 1000) {
-  return msg.reply("⏳ Jangan spam command");
-}
-
-db.set(id, "cmd_cd", Date.now());
+  // ===== COOLDOWN COMMAND =====
+  const cmd_cd = db.get(id, "cmd_cd") || 0;
+  if (Date.now() - cmd_cd < 1000) {
+    return msg.reply("⏳ Jangan spam command");
+  }
+  db.set(id, "cmd_cd", Date.now());
 
   // ===== DAILY =====
   if (cmd === "daily") {
-    deleteCmd();
+    deleteCmd(msg);
     const last = db.get(id, "daily") || 0;
 
     const row = new ActionRowBuilder().addComponents(
@@ -143,11 +157,17 @@ db.set(id, "cmd_cd", Date.now());
         .setStyle(ButtonStyle.Primary)
     );
 
-    if (now - last < 86400000)
-      return msg.reply({ content: "❌ Sudah claim", components: [row] });
+    if (now - last < 86400000) {
+      const remaining = 86400000 - (now - last);
+      const hours = Math.floor(remaining / 3600000);
+      const mins = Math.floor((remaining % 3600000) / 60000);
+      return msg.reply({
+        content: `❌ Sudah claim! Cooldown: **${hours}j ${mins}m** lagi`,
+        components: [row]
+      });
+    }
 
     const reward = Math.floor(Math.random() * 700) + 800;
-
     db.set(id, "daily", now);
     db.add(id, "points", reward);
 
@@ -155,16 +175,15 @@ db.set(id, "cmd_cd", Date.now());
       embeds: [
         new EmbedBuilder()
           .setColor("#57F287")
-          .setDescription(`✅ **Daily Claimed!**
-Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
+          .setDescription(`✅ **Daily Claimed!**\nReward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
       ],
       components: [row]
     });
-}
+  }
 
   // ===== WEEKLY =====
   if (cmd === "weekly") {
-    deleteCmd();
+    deleteCmd(msg);
     const last = db.get(id, "weekly") || 0;
 
     const row = new ActionRowBuilder().addComponents(
@@ -174,11 +193,17 @@ Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
         .setStyle(ButtonStyle.Success)
     );
 
-    if (now - last < 604800000)
-      return msg.reply({ content: "❌ Sudah claim", components: [row] });
+    if (now - last < 604800000) {
+      const remaining = 604800000 - (now - last);
+      const days = Math.floor(remaining / 86400000);
+      const hours = Math.floor((remaining % 86400000) / 3600000);
+      return msg.reply({
+        content: `❌ Sudah claim! Cooldown: **${days}h ${hours}j** lagi`,
+        components: [row]
+      });
+    }
 
     const reward = Math.floor(Math.random() * 1500) + 1500;
-
     db.set(id, "weekly", now);
     db.add(id, "points", reward);
 
@@ -186,21 +211,23 @@ Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
       embeds: [
         new EmbedBuilder()
           .setColor("#FEE75C")
-          .setDescription(`✅ **Weekly Claimed!**
-Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
+          .setDescription(`✅ **Weekly Claimed!**\nReward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
       ],
       components: [row]
     });
   }
 
-  // ===== HUNT (ANIMASI) =====
+  // ===== HUNT =====
   if (cmd === "hunt") {
-    deleteCmd();
+    deleteCmd(msg);
     const last = db.get(id, "hunt") || 0;
 
-    if (now - last < 180000)
-      return msg.reply("⏳ Tunggu 3 menit");
+    if (now - last < 180000) {
+      const remaining = Math.ceil((180000 - (now - last)) / 1000);
+      return msg.reply(`⏳ Tunggu **${remaining} detik** lagi`);
+    }
 
+    // Set cooldown SEBELUM animasi agar tidak di-spam saat loading
     db.set(id, "hunt", now);
 
     const m = await msg.reply("🏹 Kamu mulai berburu...");
@@ -215,44 +242,47 @@ Reward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
 
     if (Math.random() < 0.3) {
       db.add(id, "points", -30);
-      return m.edit("💀 Diserang saat berburu (-30)");
+      return m.edit("💀 Diserang saat berburu! **-30 Point**");
     }
 
     const a = getAnimal();
-
-    let p = db.get(id, "points") || 0;
-    let reward = Math.floor(a.value * antiRich(p));
+    const p = db.get(id, "points") || 0;
+    const reward = Math.floor(a.value * antiRich(p));
 
     db.add(id, "points", reward);
     db.add(id, `col_${a.name}`, 1);
 
-    await m.edit(`✨ Kamu menemukan ${a.name}
-🏷️ Rarity: **${a.rarity}**
-💰 +${reward} Point`);
+    await m.edit({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#57F287")
+          .setDescription(`✨ Kamu menemukan **${a.name}**\n🏷️ Rarity: **${a.rarity}**\n💰 +**${reward} Point**`)
+      ]
+    });
   }
 
+  // ===== BALANCE =====
   if (cmd === "balance") {
-    deleteCmd();
+    deleteCmd(msg);
     const data = db.all();
 
-    let arr = Object.keys(data).map(u => ({
-      id: u,
-      p: data[u].points || 0
-    }));
+    // FIX: buat salinan array untuk sorting, hindari mutasi data asli
+    const arr = Object.keys(data)
+      .map(u => ({ id: u, p: data[u].points || 0 }))
+      .sort((a, b) => b.p - a.p);
 
-    arr.sort((a, b) => b.p - a.p);
     const rank = arr.findIndex(u => u.id === id) + 1;
-
     const p = db.get(id, "points") || 0;
     const chat = db.get(id, "chat") || 0;
     const voice = db.get(id, "voice") || 0;
-
-    const format = (n) => n.toLocaleString("id-ID");
+    const format = n => n.toLocaleString("id-ID");
     const time = new Date().toLocaleString("id-ID");
 
-    const level = Math.floor(p / 100);
-    const current = p % 100;
-    const percent = Math.floor((current / 100) * 100);
+    // FIX: Level lebih meaningful (per 500 point)
+    const LEVEL_THRESHOLD = 500;
+    const level = Math.floor(p / LEVEL_THRESHOLD);
+    const current = p % LEVEL_THRESHOLD;
+    const percent = Math.floor((current / LEVEL_THRESHOLD) * 100);
 
     const barLength = 10;
     const filled = Math.floor((percent / 100) * barLength);
@@ -284,58 +314,47 @@ ${bar} ${percent}% (Level ${level})
   }
 
   // ===== LEADERBOARD =====
-if (cmd === "leaderboard") {
-  deleteCmd();
+  if (cmd === "leaderboard") {
+    deleteCmd(msg);
 
-  const data = db.all();
-  const format = (n) => n.toLocaleString("id-ID");
+    const data = db.all();
+    const format = n => n.toLocaleString("id-ID");
 
-  let arr = Object.keys(data).map(u => ({
-    id: u,
-    chat: data[u].chat || 0,
-    voice: data[u].voice || 0
-  }));
+    const arr = Object.keys(data).map(u => ({
+      id: u,
+      chat: data[u].chat || 0,
+      voice: data[u].voice || 0
+    }));
 
-  let chatSorted = arr.sort((a, b) => b.chat - a.chat).slice(0, 5);
-  let voiceSorted = arr.sort((a, b) => b.voice - a.voice).slice(0, 5);
+    // FIX: buat salinan array terpisah sebelum sort agar tidak saling mempengaruhi
+    const chatSorted = [...arr].sort((a, b) => b.chat - a.chat).slice(0, 5);
+    const voiceSorted = [...arr].sort((a, b) => b.voice - a.voice).slice(0, 5);
 
-  const getName = async (id) => {
-    let user = client.users.cache.get(id);
+    const getName = async (userId) => {
+      let user = client.users.cache.get(userId);
+      if (!user) user = await client.users.fetch(userId).catch(() => null);
+      return user ? user.username : "Unknown";
+    };
 
-    if (!user) {
-      user = await client.users.fetch(id).catch(() => null);
+    const chatTop = [];
+    for (let i = 0; i < chatSorted.length; i++) {
+      const name = await getName(chatSorted[i].id);
+      chatTop.push(`**${i + 1}. ${name}** ➜ Chat: ${format(chatSorted[i].chat)}`);
     }
 
-    return user ? user.username : "Unknown";
-  };
+    const voiceTop = [];
+    for (let i = 0; i < voiceSorted.length; i++) {
+      const name = await getName(voiceSorted[i].id);
+      voiceTop.push(`**${i + 1}. ${name}** ➜ Voice: ${format(voiceSorted[i].voice)}`);
+    }
 
-  let chatTop = [];
-  for (let i = 0; i < chatSorted.length; i++) {
-    const u = chatSorted[i];
-    const name = await getName(u.id);
-
-    chatTop.push(
-      `**${i + 1}. ${name}** ➜ Chat: ${format(u.chat)}`
-    );
-  }
-
-  let voiceTop = [];
-  for (let i = 0; i < voiceSorted.length; i++) {
-    const u = voiceSorted[i];
-    const name = await getName(u.id);
-
-    voiceTop.push(
-      `**${i + 1}. ${name}** ➜ Voice: ${format(u.voice)}`
-    );
-  }
-
-  msg.reply({
-    embeds: [
-      new EmbedBuilder()
-        .setColor("#2B2D31")
-        .setTitle("TOP LEADERBOARD")
-        .setThumbnail(msg.guild.iconURL({ dynamic: true }))
-        .setDescription(`
+    msg.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#2B2D31")
+          .setTitle("TOP LEADERBOARD")
+          .setThumbnail(msg.guild.iconURL({ dynamic: true }))
+          .setDescription(`
 ━━━━━━━━━━━━━━━━━━━━
 **💬 Chat**
 ${chatTop.join("\n")}
@@ -344,45 +363,46 @@ ${chatTop.join("\n")}
 **🎙️ Voice**
 ${voiceTop.join("\n")}
 `)
-    ]
-  });
-}
+      ]
+    });
+  }
 
-  // ===== OWNER =====
+  // ===== OWNER: ADD =====
   if (cmd === "add") {
-    deleteCmd();
-    if (msg.author.id !== msg.guild.ownerId)
+    deleteCmd(msg);
+    if (msg.author.id !== msg.guild?.ownerId)
       return msg.reply("❌ Owner only");
 
     const user = msg.mentions.users.first();
     const amount = parseInt(args[1]);
 
     if (!user || isNaN(amount))
-      return msg.reply("Format: !add @user 100");
+      return msg.reply("Format: `!add @user 100`");
 
     db.add(user.id, "points", amount);
-    msg.reply(`✅ +${amount} point ke ${user.username}`);
+    msg.reply(`✅ +${amount} point ke **${user.username}**`);
   }
 
+  // ===== OWNER: RESET =====
   if (cmd === "reset") {
-    deleteCmd();
-    if (msg.author.id !== msg.guild.ownerId)
+    deleteCmd(msg);
+    if (msg.author.id !== msg.guild?.ownerId)
       return msg.reply("❌ Owner only");
 
     const user = msg.mentions.users.first();
-    if (!user) return msg.reply("Tag user");
+    if (!user) return msg.reply("Tag user dulu!");
 
     db.set(user.id, "points", 0);
-    msg.reply("✅ Reset berhasil");
+    msg.reply(`✅ Reset point **${user.username}** berhasil`);
   }
 
- // ===== COLLECTION =====
+  // ===== COLLECTION =====
   if (cmd === "collection") {
-    deleteCmd();
-    let text = "";
+    deleteCmd(msg);
 
-    for (let a of animals) {
-      let count = db.get(id, `col_${a.name}`) || 0;
+    let text = "";
+    for (const a of animals) {
+      const count = db.get(id, `col_${a.name}`) || 0;
       if (count > 0) text += `${a.name}${small(count)}\n`;
     }
 
@@ -392,9 +412,7 @@ ${voiceTop.join("\n")}
           .setColor("#2B2D31")
           .setTitle("LIST HEWAN BURUAN")
           .setThumbnail(msg.author.displayAvatarURL())
-          .setDescription(`Pemburu: **${msg.author.username}**
-
-${text || "Belum ada koleksi"}`)
+          .setDescription(`Pemburu: **${msg.author.username}**\n\n${text || "Belum ada koleksi"}`)
       ]
     });
   }
@@ -404,100 +422,88 @@ ${text || "Belum ada koleksi"}`)
 client.on("interactionCreate", async (i) => {
   if (!i.isButton()) return;
 
-  const id = i.user.id;
-
-  const createReminder = (type, duration, message) => {
-    const time = Date.now() + duration;
-
-    db.set(id, `${type}_remind`, time);
-
-    // hapus schedule lama (hanya type itu)
-    for (let i = 0; i < schedule.length; i++) {
-      if (schedule[i].id === id && schedule[i].type === type) {
-        schedule.splice(i, 1);
-        i--;
-      }
-    }
-
-    schedule.push({
-      id: id,
-      time: time,
-      message: message,
-      type: type
-    });
-  };
+  const userId = i.user.id;
 
   if (i.customId === "daily_remind") {
-    createReminder("daily", 86400000, "🎁 Daily ready!");
-
-    return i.reply({
-      content: "⏰ Daily berhasil diingatkan!",
-      ephemeral: true
-    });
+    createReminder(userId, "daily", 86400000, "🎁 Daily ready!");
+    return i.reply({ content: "⏰ Kamu akan diingatkan saat daily bisa di-claim!", ephemeral: true });
   }
 
   if (i.customId === "weekly_remind") {
-    createReminder("weekly", 604800000, "🎉 Weekly ready!");
-
-    return i.reply({
-      content: "⏰ Weekly berhasil diingatkan!",
-      ephemeral: true
-    });
+    createReminder(userId, "weekly", 604800000, "🎉 Weekly ready!");
+    return i.reply({ content: "⏰ Kamu akan diingatkan saat weekly bisa di-claim!", ephemeral: true });
   }
 });
- 
-// ===== VOICE =====
-client.on("voiceStateUpdate", (o, n) => {
-  if (!n.channel) return;
 
-  const members = n.channel.members.filter(m => !m.user.bot);
-  if (members.size < 2) return;
+// ===== VOICE TRACKING (FIX: pakai setInterval, bukan voiceStateUpdate saja) =====
+client.on("voiceStateUpdate", (oldState, newState) => {
+  const userId = newState.member?.id || oldState.member?.id;
+  if (!userId) return;
 
-  members.forEach(m => {
-    const last = db.get(m.id, "voice_cd") || 0;
+  const isBot = newState.member?.user.bot || oldState.member?.user.bot;
+  if (isBot) return;
 
-    // cooldown 1 menit
-    if (Date.now() - last < 60000) return;
+  const joinedChannel = newState.channel;
+  const leftChannel = !newState.channelId && oldState.channelId;
 
-    let p = db.get(m.id, "points") || 0;
+  // User join voice
+  if (joinedChannel) {
+    const membersInChannel = joinedChannel.members.filter(m => !m.user.bot).size;
+    if (membersInChannel >= 2) {
+      voiceTracker.set(userId, Date.now());
+    }
+  }
 
-    db.add(m.id, "points", Math.floor(10 * antiRich(p)));
-    db.add(m.id, "voice", 1);
-    db.set(m.id, "voice_cd", Date.now());
-  });
+  // User leave voice — hapus dari tracker
+  if (leftChannel) {
+    voiceTracker.delete(userId);
+  }
 });
+
+// Setiap 1 menit, berikan point ke semua yang ada di voice dengan 2+ orang
+setInterval(() => {
+  client.guilds.cache.forEach(guild => {
+    guild.channels.cache
+      .filter(c => c.isVoiceBased())
+      .forEach(channel => {
+        const realMembers = channel.members.filter(m => !m.user.bot);
+        if (realMembers.size < 2) return;
+
+        realMembers.forEach(member => {
+          const userId = member.id;
+          const p = db.get(userId, "points") || 0;
+
+          db.add(userId, "points", Math.floor(10 * antiRich(p)));
+          db.add(userId, "voice", 1);
+        });
+      });
+  });
+}, 60000); // setiap 1 menit
 
 // ===== REACTION =====
 client.on("messageReactionAdd", (r, u) => {
   if (u.bot) return;
   if (r.message.channel.name !== "announcement") return;
 
-  let p = db.get(u.id, "points") || 0;
+  const p = db.get(u.id, "points") || 0;
   db.add(u.id, "points", Math.floor(5 * antiRich(p)));
 });
 
-// ===== SCHEDULER PROCESS (OPTIMIZED) =====
+// ===== SCHEDULER PROCESS =====
 setInterval(() => {
   const now = Date.now();
-
   let count = 0;
 
-  for (let i = 0; i < schedule.length; i++) {
-    if (count >= 50) break; // batasi per loop biar ringan
+  for (let i = schedule.length - 1; i >= 0; i--) {
+    if (count >= 50) break;
     count++;
 
     const item = schedule[i];
-
     if (now >= item.time) {
       if (dmQueue.length < 1000) {
-        dmQueue.push({
-          id: item.id,
-          message: item.message
-        });
+        dmQueue.push({ id: item.id, message: item.message });
       }
-
       schedule.splice(i, 1);
-      i--;
     }
   }
 }, 2000);
@@ -510,53 +516,39 @@ setInterval(async () => {
 
   try {
     let user = client.users.cache.get(data.id);
-
-    if (!user) {
-      user = await client.users.fetch(data.id).catch(() => null);
-    }
-
+    if (!user) user = await client.users.fetch(data.id).catch(() => null);
     if (!user) return;
 
     await user.send(data.message).catch(() => {});
   } catch (e) {
     console.log("Queue DM Error:", e.message);
   }
-
-}, 700); // 0.7 detik per DM (AMAN)
+}, 700);
 
 // ===== READY (RESTORE SCHEDULE) =====
 client.once("ready", () => {
   console.log(`✅ Bot aktif sebagai ${client.user.tag}`);
 
-  schedule.length = 0; // ❗ FIX: hapus schedule lama (anti duplicate)
+  schedule.length = 0; // Bersihkan schedule lama
 
   const data = db.all();
   const now = Date.now();
 
-  for (let id in data) {
+  for (const id in data) {
     if (data[id].daily_remind && data[id].daily_remind > now) {
-      schedule.push({
-        id: id,
-        time: data[id].daily_remind,
-        message: "🎁 Daily ready!",
-        type: "daily" // ❗ FIX: tambah type
-      });
+      schedule.push({ id, time: data[id].daily_remind, message: "🎁 Daily ready!", type: "daily" });
     }
-
     if (data[id].weekly_remind && data[id].weekly_remind > now) {
-      schedule.push({
-        id: id,
-        time: data[id].weekly_remind,
-        message: "🎉 Weekly ready!",
-        type: "weekly" // ❗ FIX: tambah type
-      });
+      schedule.push({ id, time: data[id].weekly_remind, message: "🎉 Weekly ready!", type: "weekly" });
     }
   }
+
+  console.log(`📅 Restored ${schedule.length} reminder(s)`);
 });
 
 // ===== ERROR HANDLER =====
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
-  
+
 // ===== LOGIN =====
 client.login(process.env.TOKEN);
