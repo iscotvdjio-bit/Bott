@@ -179,7 +179,7 @@ client.on("interactionCreate", async (interaction) => {
       embeds: [
         new EmbedBuilder()
           .setColor("#57F287")
-          .setDescription(`✅ **Daily Claimed!**\nReward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
+          .setDescription(`✅ **Daily Claimed!**\nReward: <:emoji_4:1493617126492344402> **${reward} Point Aktivitas**`)
       ],
       components: [row]
     });
@@ -217,7 +217,7 @@ client.on("interactionCreate", async (interaction) => {
       embeds: [
         new EmbedBuilder()
           .setColor("#FEE75C")
-          .setDescription(`✅ **Weekly Claimed!**\nReward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
+          .setDescription(`✅ **Weekly Claimed!**\nReward: <:emoji_4:1493617126492344402> **${reward} Point Aktivitas**`)
       ],
       components: [row]
     });
