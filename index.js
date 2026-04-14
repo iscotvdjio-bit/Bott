@@ -312,9 +312,9 @@ client.on("interactionCreate", async (interaction) => {
 ${bar} ${percent}% (Level ${level})
 
 ━━━━━━━━━━━━━━━━━━━━
-💸 **Total Point**: <:emoji_4:1490319270553325638> **${format(p)}**
+💸 **Total Point**: <:emoji_4:1493617126492344402> **${format(p)}**
 ━━━━━━━━━━━━━━━━━━━━
-<:emoji_4:1490319270553325638> vibepoint | ${time}
+<:emoji_4:1493617126492344402> vibepoint | ${time}
 `)
       ]
     });
