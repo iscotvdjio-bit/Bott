@@ -1,22 +1,20 @@
 const fs = require("fs");
-const path = "./database.json";
+
+const FILE = "./database.json";
 
 let data = {};
 
-// load awal
-if (fs.existsSync(path)) {
-  data = JSON.parse(fs.readFileSync(path));
+if (fs.existsSync(FILE)) {
+  data = JSON.parse(fs.readFileSync(FILE));
 }
 
-// save function
 function save() {
-  fs.writeFileSync(path, JSON.stringify(data, null, 2));
+  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
 }
 
 module.exports = {
   get(id, key) {
-    if (!data[id]) return null;
-    return data[id][key] || 0;
+    return data[id]?.[key];
   },
 
   set(id, key, value) {
@@ -28,7 +26,6 @@ module.exports = {
   add(id, key, value) {
     if (!data[id]) data[id] = {};
     if (!data[id][key]) data[id][key] = 0;
-
     data[id][key] += value;
     save();
   },
