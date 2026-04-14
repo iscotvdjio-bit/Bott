@@ -1,9 +1,11 @@
 {
   "name": "vibe-bot",
   "version": "1.0.0",
+  "description": "Discord VIBE Bot",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
   },
   "dependencies": {
     "discord.js": "^14.14.1",
