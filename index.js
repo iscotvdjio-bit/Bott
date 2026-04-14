@@ -298,7 +298,7 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#2B2D31")
+          .setColor("#67f7da")
           .setTitle(`** Point ** : ${user.username}`)
           .setThumbnail(user.displayAvatarURL({ dynamic: true }))
           .setDescription(`
@@ -357,7 +357,7 @@ ${bar} ${percent}% (Level ${level})
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#2B2D31")
+          .setColor("#67f7da")
           .setTitle("TOP LEADERBOARD")
           .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
           .setDescription(`
@@ -386,7 +386,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#2B2D31")
+          .setColor("#67f7da")
           .setTitle("LIST HEWAN BURUAN")
           .setThumbnail(user.displayAvatarURL())
           .setDescription(`Pemburu: **${user.username}**\n\n${text || "Belum ada koleksi"}`)
