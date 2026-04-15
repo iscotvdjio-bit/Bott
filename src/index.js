@@ -495,8 +495,9 @@ ${voiceTop.join("\n") || "Belum ada data"}
       return interaction.editReply({
         embeds: [
           new EmbedBuilder()
-            .setColor("#2563eb")
+            .setColor("#67f7da")
             .setTitle(`🏆 Top Donatur — ${getMonthLabel()}`)
+            .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
             .setDescription(lines.join("\n"))
         ]
       });
@@ -538,7 +539,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#57F287")
+          .setColor("#67f7da")
           .setTitle("✅ Donasi Berhasil Ditambahkan")
           .setDescription(
             `👤 **Donatur** : ${target.username}\n` +
