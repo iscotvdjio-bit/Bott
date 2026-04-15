@@ -460,98 +460,47 @@ ${voiceTop.join("\n") || "Belum ada data"}
   // /donate-top  ← COMMAND BARU: tampilkan leaderboard donatur
   // ════════════════════════════════════════════════════════
   if (commandName === "donate-top") {
-  const top    = donate.getTop(10);
-  const month  = donate.getMonth();
-  const format = n => "Rp " + n.toLocaleString("id-ID").replace(/,/g, ".");
+    await interaction.deferReply();
 
-  const rankEmoji = i => {
-    const medals = ["🥇", "🥈", "🥉"];
-    const boxes  = ["4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
-    return i < 3 ? medals[i] : boxes[i - 3];
-  };
+    const key    = getDonateKey();
+    const donors = loadDonors(key);
 
-  if (top.length === 0) {
-    return interaction.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#67f7da")
-          .setTitle("TOP DONATUR SERVER")
-          .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
-          .setDescription(
-            `<:emoji_4:1493617126492344402> **Month : ${month}**\n\n` +
-            `*Belum ada data donatur.*\n\n` +
-            `Gunakan \`/donate-add\` untuk menambahkan data.`
-          )
-      ]
-    });
-  }
+    if (donors.length === 0) {
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#ef4444")
+            .setDescription("❌ Belum ada data donatur bulan ini.")
+        ]
+      });
+    }
 
-  // Defer dulu karena generate gambar butuh waktu
-  await interaction.deferReply();
+    // Sort descending by amount
+    const sorted = [...donors].sort((a, b) => b.amount - a.amount);
 
-  // Siapkan data donor: perlu avatarURL per user
-  const donorData = [];
-  for (const d of top) {
-    let avatarURL = "https://cdn.discordapp.com/embed/avatars/0.png"; // default
+    const guildIcon = guild?.iconURL({ extension: "png", size: 128 }) ?? "https://cdn.discordapp.com/embed/avatars/0.png";
+
     try {
-      // Coba fetch user Discord jika ada userId tersimpan
-      if (d.userId) {
-        let u = client.users.cache.get(d.userId);
-        if (!u) u = await client.users.fetch(d.userId).catch(() => null);
-        if (u) avatarURL = u.displayAvatarURL({ extension: "png", forceStatic: true, size: 128 });
-      }
-    } catch {}
+      const imgBuf = await buildDonateImage(sorted, guildIcon, getMonthLabel());
+      const attach = new AttachmentBuilder(imgBuf, { name: "top-donatur.png" });
 
-    donorData.push({
-      username:  d.name,
-      avatarURL: avatarURL,
-      amount:    d.total
-    });
+      return interaction.editReply({ files: [attach] });
+    } catch (err) {
+      console.error("donate-top image error:", err);
+      // Fallback ke embed teks jika canvas gagal
+      const lines = sorted.slice(0, 10).map((d, i) =>
+        `**${i+1}.** ${d.username} — ${formatRp(d.amount)} *(${d.platform})*`
+      );
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#2563eb")
+            .setTitle(`🏆 Top Donatur — ${getMonthLabel()}`)
+            .setDescription(lines.join("\n"))
+        ]
+      });
+    }
   }
-
-  // Ambil icon server
-  const guildIcon = guild?.iconURL({ extension: "png", size: 256 })
-    ?? "https://cdn.discordapp.com/embed/avatars/0.png";
-
-  try {
-    // Generate gambar canvas
-    const imgBuf = await buildDonateImage(donorData, guildIcon, month);
-    const attach = new AttachmentBuilder(imgBuf, { name: "top-donatur.png" });
-
-    return interaction.editReply({ files: [attach] });
-
-  } catch (err) {
-    console.error("donate-top image error:", err);
-
-    // Fallback embed teks jika canvas gagal (misal node-canvas belum terinstall)
-    const list = top.map((d, i) =>
-      `${rankEmoji(i)} **${d.name}** \u2003${format(d.total)}`
-    ).join("\n");
-
-    const sourceNote = top.some(d => d.source !== "manual")
-      ? "\n\n📡 *Data dari Saweria & Sociabuzz*"
-      : "\n\n📝 *Data dikelola manual oleh owner*";
-
-    return interaction.editReply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#67f7da")
-          .setTitle("🏆 TOP DONATUR SERVER")
-          .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
-          .setDescription(
-            `<:emoji_4:1493617126492344402> **Month : ${month}**\n` +
-            `${"━".repeat(28)}\n\n` +
-            list +
-            `\n\n${"━".repeat(28)}` +
-            sourceNote
-          )
-          .setFooter({ text: "Terima kasih kepada seluruh donatur! 💙" })
-          .setTimestamp()
-      ]
-    });
-  }
-}
-  
 
   // ════════════════════════════════════════════════════════
   // /add-donate  ← COMMAND BARU: input donasi manual (owner)
@@ -588,7 +537,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#67f7da")
+          .setColor("#57F287")
           .setTitle("✅ Donasi Berhasil Ditambahkan")
           .setDescription(
             `👤 **Donatur** : ${target.username}\n` +
