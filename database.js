@@ -1,36 +1,46 @@
-const fs = require("fs");
+const fs   = require("fs");
+const path = require("path");
 
-const FILE = "./database.json";
+const FILE = path.join(__dirname, "..", "data", "db.json");
 
-let data = {};
-
-if (fs.existsSync(FILE)) {
-  data = JSON.parse(fs.readFileSync(FILE));
+function load() {
+  if (!fs.existsSync(FILE)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(FILE, "utf8"));
+  } catch {
+    return {};
+  }
 }
 
-function save() {
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
+function save(data) {
+  const dir = path.dirname(FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(FILE, JSON.stringify(data, null, 2), "utf8");
 }
 
-module.exports = {
-  get(id, key) {
-    return data[id]?.[key];
+const db = {
+  get(userId, key) {
+    const data = load();
+    return data[userId]?.[key] ?? null;
   },
 
-  set(id, key, value) {
-    if (!data[id]) data[id] = {};
-    data[id][key] = value;
-    save();
+  set(userId, key, value) {
+    const data = load();
+    if (!data[userId]) data[userId] = {};
+    data[userId][key] = value;
+    save(data);
   },
 
-  add(id, key, value) {
-    if (!data[id]) data[id] = {};
-    if (!data[id][key]) data[id][key] = 0;
-    data[id][key] += value;
-    save();
+  add(userId, key, amount) {
+    const data = load();
+    if (!data[userId]) data[userId] = {};
+    data[userId][key] = (data[userId][key] || 0) + amount;
+    save(data);
   },
 
   all() {
-    return data;
+    return load();
   }
 };
+
+module.exports = db;
