@@ -5,11 +5,11 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  AttachmentBuilder
 } = require("discord.js");
 
-const db     = require("./database");
-const donate = require("./donate");
+const db = require("./database");
 const { buildDonateImage, formatRp } = require("./donate");
 const { AttachmentBuilder } = require("discord.js");
 
@@ -81,6 +81,39 @@ function createReminder(userId, type, duration, message) {
   schedule.push({ id: userId, time, message, type });
 }
 
+// ===== DONATE HELPERS =====
+
+// Key: donate_YYYY-MM  →  { donors: [ {userId, username, avatarURL, amount, platform} ] }
+function getDonateKey() {
+  const now = new Date();
+  return `donate_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+}
+
+function getMonthLabel() {
+  return new Date().toLocaleString("id-ID", { month: "long", year: "numeric" });
+}
+
+function loadDonors(key) {
+  return db.get("donate", key) || [];
+}
+
+function saveDonors(key, donors) {
+  db.set("donate", key, donors);
+}
+
+// ===== AUTO-RESET DONATUR TIAP AWAL BULAN =====
+// Dijalankan setiap 1 jam, cek apakah bulan berganti
+let lastDonateMonth = new Date().getMonth();
+setInterval(() => {
+  const currentMonth = new Date().getMonth();
+  if (currentMonth !== lastDonateMonth) {
+    lastDonateMonth = currentMonth;
+    // Data bulan lama otomatis tersimpan dengan key bulan lalu,
+    // bulan baru akan mulai dari [] kosong secara natural.
+    console.log("🔄 Auto-reset donatur: bulan baru dimulai");
+  }
+}, 3600000); // cek tiap 1 jam
+
 // ===== POINT CHAT & MEDIA =====
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
@@ -90,7 +123,6 @@ client.on("messageCreate", async (msg) => {
 
   db.set(id, "username", msg.author.username);
 
-  // Point dari chat
   const last = db.get(id, "chat_cd") || 0;
   if (now - last > 5000) {
     const p = db.get(id, "points") || 0;
@@ -99,7 +131,6 @@ client.on("messageCreate", async (msg) => {
     db.set(id, "chat_cd", now);
   }
 
-  // Point dari media (anti spam)
   if (msg.attachments.size > 0) {
     const lastMedia = db.get(id, "media_cd") || 0;
     const lastUrl   = db.get(id, "last_media");
@@ -142,7 +173,6 @@ client.on("interactionCreate", async (interaction) => {
 
   db.set(id, "username", user.username);
 
-  // Cooldown global per user
   const cmd_cd = db.get(id, "cmd_cd") || 0;
   if (now - cmd_cd < 1000) {
     return interaction.reply({ content: "⏳ Jangan spam command!", ephemeral: true });
@@ -181,7 +211,7 @@ client.on("interactionCreate", async (interaction) => {
       embeds: [
         new EmbedBuilder()
           .setColor("#57F287")
-          .setDescription(`✅ **Daily Claimed!**\nReward: <:emoji_4:1493617126492344402> **${reward} Point Aktivitas**`)
+          .setDescription(`✅ **Daily Claimed!**\nReward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
       ],
       components: [row]
     });
@@ -219,7 +249,7 @@ client.on("interactionCreate", async (interaction) => {
       embeds: [
         new EmbedBuilder()
           .setColor("#FEE75C")
-          .setDescription(`✅ **Weekly Claimed!**\nReward: <:emoji_4:1493617126492344402> **${reward} Point Aktivitas**`)
+          .setDescription(`✅ **Weekly Claimed!**\nReward: <:emoji_4:1490319270553325638> **${reward} Point Aktivitas**`)
       ],
       components: [row]
     });
@@ -297,7 +327,7 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#67f7da")
+          .setColor("#2B2D31")
           .setTitle(`** Point ** : ${user.username}`)
           .setThumbnail(user.displayAvatarURL({ dynamic: true }))
           .setDescription(`
@@ -311,9 +341,9 @@ client.on("interactionCreate", async (interaction) => {
 ${bar} ${percent}% (Level ${level})
 
 ━━━━━━━━━━━━━━━━━━━━
-💸 **Total Point**: <:emoji_4:1493617126492344402> **${format(p)}**
+💸 **Total Point**: <:emoji_4:1490319270553325638> **${format(p)}**
 ━━━━━━━━━━━━━━━━━━━━
-<:emoji_4:1493617126492344402> vibepoint | ${time}
+<:emoji_4:1490319270553325638> vibepoint | ${time}
 `)
       ]
     });
@@ -356,7 +386,7 @@ ${bar} ${percent}% (Level ${level})
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#67f7da")
+          .setColor("#2B2D31")
           .setTitle("TOP LEADERBOARD")
           .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
           .setDescription(`
@@ -385,7 +415,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#67f7da")
+          .setColor("#2B2D31")
           .setTitle("LIST HEWAN BURUAN")
           .setThumbnail(user.displayAvatarURL())
           .setDescription(`Pemburu: **${user.username}**\n\n${text || "Belum ada koleksi"}`)
@@ -426,194 +456,149 @@ ${voiceTop.join("\n") || "Belum ada data"}
       ephemeral: true
     });
   }
- 
-// ────────────────────────────────────────────────────────
-// /donate-top
-// ────────────────────────────────────────────────────────
-if (commandName === "donate-top") {
-  const top    = donate.getTop(10);
-  const month  = donate.getMonth();
-  const format = n => "Rp " + n.toLocaleString("id-ID").replace(/,/g, ".");
 
-  const rankEmoji = i => {
-    const medals = ["🥇", "🥈", "🥉"];
-    const boxes  = ["4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
-    return i < 3 ? medals[i] : boxes[i - 3];
-  };
+  // ════════════════════════════════════════════════════════
+  // /donate-top  ← COMMAND BARU: tampilkan leaderboard donatur
+  // ════════════════════════════════════════════════════════
+  if (commandName === "donate-top") {
+    await interaction.deferReply();
 
-  if (top.length === 0) {
-    return interaction.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#67f7da")
-          .setTitle("TOP DONATUR SERVER")
-          .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
-          .setDescription(
-            `<:emoji_4:1493617126492344402> **Month : ${month}**\n\n` +
-            `*Belum ada data donatur.*\n\n` +
-            `Gunakan \`/donate-add\` untuk menambahkan data.`
-          )
-      ]
-    });
-  }
+    const key    = getDonateKey();
+    const donors = loadDonors(key);
 
-  // Defer dulu karena generate gambar butuh waktu
-  await interaction.deferReply();
+    if (donors.length === 0) {
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#ef4444")
+            .setDescription("❌ Belum ada data donatur bulan ini.")
+        ]
+      });
+    }
 
-  // Siapkan data donor: perlu avatarURL per user
-  const donorData = [];
-  for (const d of top) {
-    let avatarURL = "https://cdn.discordapp.com/embed/avatars/0.png"; // default
+    // Sort descending by amount
+    const sorted = [...donors].sort((a, b) => b.amount - a.amount);
+
+    const guildIcon = guild?.iconURL({ extension: "png", size: 128 }) ?? "https://cdn.discordapp.com/embed/avatars/0.png";
+
     try {
-      // Coba fetch user Discord jika ada userId tersimpan
-      if (d.userId) {
-        let u = client.users.cache.get(d.userId);
-        if (!u) u = await client.users.fetch(d.userId).catch(() => null);
-        if (u) avatarURL = u.displayAvatarURL({ extension: "png", forceStatic: true, size: 128 });
-      }
-    } catch {}
+      const imgBuf = await buildDonateImage(sorted, guildIcon, getMonthLabel());
+      const attach = new AttachmentBuilder(imgBuf, { name: "top-donatur.png" });
 
-    donorData.push({
-      username:  d.name,
-      avatarURL: avatarURL,
-      amount:    d.total
-    });
+      return interaction.editReply({ files: [attach] });
+    } catch (err) {
+      console.error("donate-top image error:", err);
+      // Fallback ke embed teks jika canvas gagal
+      const lines = sorted.slice(0, 10).map((d, i) =>
+        `**${i+1}.** ${d.username} — ${formatRp(d.amount)} *(${d.platform})*`
+      );
+      return interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#2563eb")
+            .setTitle(`🏆 Top Donatur — ${getMonthLabel()}`)
+            .setDescription(lines.join("\n"))
+        ]
+      });
+    }
   }
 
-  // Ambil icon server
-  const guildIcon = guild?.iconURL({ extension: "png", size: 256 })
-    ?? "https://cdn.discordapp.com/embed/avatars/0.png";
+  // ════════════════════════════════════════════════════════
+  // /add-donate  ← COMMAND BARU: input donasi manual (owner)
+  // ════════════════════════════════════════════════════════
+  if (commandName === "add-donate") {
+    if (user.id !== guild?.ownerId) {
+      return interaction.reply({ content: "❌ Owner only!", ephemeral: true });
+    }
 
-  try {
-    // Generate gambar canvas
-    const imgBuf = await buildDonateImage(donorData, guildIcon, month);
-    const attach = new AttachmentBuilder(imgBuf, { name: "top-donatur.png" });
+    const target   = interaction.options.getUser("user");
+    const amount   = interaction.options.getInteger("jumlah");
+    const platform = interaction.options.getString("platform"); // "saweria" | "sociabuzz"
 
-    return interaction.editReply({ files: [attach] });
+    const key    = getDonateKey();
+    const donors = loadDonors(key);
 
-  } catch (err) {
-    console.error("donate-top image error:", err);
+    // Cari apakah user sudah ada di list bulan ini → tambah nominalnya
+    const existing = donors.find(d => d.userId === target.id);
 
-    // Fallback embed teks jika canvas gagal (misal node-canvas belum terinstall)
-    const list = top.map((d, i) =>
-      `${rankEmoji(i)} **${d.name}** \u2003${format(d.total)}`
-    ).join("\n");
+    if (existing) {
+      existing.amount += amount;
+    } else {
+      donors.push({
+        userId:     target.id,
+        username:   target.username,
+        avatarURL:  target.displayAvatarURL({ extension: "png", forceStatic: true }),
+        amount,
+        platform
+      });
+    }
 
-    const sourceNote = top.some(d => d.source !== "manual")
-      ? "\n\n📡 *Data dari Saweria & Sociabuzz*"
-      : "\n\n📝 *Data dikelola manual oleh owner*";
+    saveDonors(key, donors);
 
-    return interaction.editReply({
+    return interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#67f7da")
-          .setTitle("🏆 TOP DONATUR SERVER")
-          .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
+          .setColor("#57F287")
+          .setTitle("✅ Donasi Berhasil Ditambahkan")
           .setDescription(
-            `<:emoji_4:1493617126492344402> **Month : ${month}**\n` +
-            `${"━".repeat(28)}\n\n` +
-            list +
-            `\n\n${"━".repeat(28)}` +
-            sourceNote
+            `👤 **Donatur** : ${target.username}\n` +
+            `💰 **Jumlah**  : ${formatRp(amount)}\n` +
+            `🔗 **Platform**: ${platform === "saweria" ? "Saweria" : "Sociabuzz"}\n` +
+            `📅 **Bulan**   : ${getMonthLabel()}`
           )
-          .setFooter({ text: "Terima kasih kepada seluruh donatur! 💙" })
-          .setTimestamp()
-      ]
-    });
-  }
-}
-
-  // ────────────────────────────────────────────────────────
-  // /donate-add  (owner only)
-  // ────────────────────────────────────────────────────────
-  if (commandName === "donate-add") {
-    if (user.id !== guild?.ownerId) {
-      return interaction.reply({ content: "❌ Owner only!", ephemeral: true });
-    }
-
-    const nama   = interaction.options.getString("nama");
-    const jumlah = interaction.options.getInteger("jumlah");
-    const sumber = interaction.options.getString("sumber") || "manual";
-    const format = n => "Rp " + n.toLocaleString("id-ID").replace(/,/g, ".");
-
-    donate.add(nama, jumlah, sumber);
-    return interaction.reply({
-      content: `✅ Donasi **${nama}** sebesar **${format(jumlah)}** berhasil ditambahkan! (sumber: ${sumber})`,
+      ],
       ephemeral: true
     });
   }
 
-  // ────────────────────────────────────────────────────────
-  // /donate-set  (owner only)
-  // ────────────────────────────────────────────────────────
-  if (commandName === "donate-set") {
+  // ════════════════════════════════════════════════════════
+  // /remove-donate  ← COMMAND BARU: hapus/kurangi donasi (owner)
+  // ════════════════════════════════════════════════════════
+  if (commandName === "remove-donate") {
     if (user.id !== guild?.ownerId) {
       return interaction.reply({ content: "❌ Owner only!", ephemeral: true });
     }
 
-    const nama   = interaction.options.getString("nama");
-    const jumlah = interaction.options.getInteger("jumlah");
-    const format = n => "Rp " + n.toLocaleString("id-ID").replace(/,/g, ".");
+    const target = interaction.options.getUser("user");
+    const key    = getDonateKey();
+    const donors = loadDonors(key);
 
-    donate.set(nama, jumlah);
+    const idx = donors.findIndex(d => d.userId === target.id);
+    if (idx === -1) {
+      return interaction.reply({
+        content: `❌ **${target.username}** tidak ada di list donatur bulan ini.`,
+        ephemeral: true
+      });
+    }
+
+    donors.splice(idx, 1);
+    saveDonors(key, donors);
+
     return interaction.reply({
-      content: `✅ Total donasi **${nama}** diset ke **${format(jumlah)}**.`,
+      content: `✅ Data donatur **${target.username}** bulan ini dihapus.`,
       ephemeral: true
     });
   }
 
-  // ────────────────────────────────────────────────────────
-  // /donate-remove  (owner only)
-  // ────────────────────────────────────────────────────────
-  if (commandName === "donate-remove") {
+  // ════════════════════════════════════════════════════════
+  // /reset-donate  ← COMMAND BARU: reset semua donatur bulan ini (owner)
+  // ════════════════════════════════════════════════════════
+  if (commandName === "reset-donate") {
     if (user.id !== guild?.ownerId) {
       return interaction.reply({ content: "❌ Owner only!", ephemeral: true });
     }
 
-    const nama = interaction.options.getString("nama");
-    const ok   = donate.remove(nama);
+    const key = getDonateKey();
+    saveDonors(key, []);
 
     return interaction.reply({
-      content: ok
-        ? `✅ **${nama}** berhasil dihapus dari daftar donatur.`
-        : `❌ Donatur **${nama}** tidak ditemukan.`,
-      ephemeral: true
-    });
-  }
-
-  // ────────────────────────────────────────────────────────
-  // /donate-reset  (owner only)
-  // ────────────────────────────────────────────────────────
-  if (commandName === "donate-reset") {
-    if (user.id !== guild?.ownerId) {
-      return interaction.reply({ content: "❌ Owner only!", ephemeral: true });
-    }
-
-    donate.reset();
-    return interaction.reply({
-      content: "✅ Semua data donatur berhasil di-reset untuk bulan baru.",
-      ephemeral: true
-    });
-  }
-
-  // ────────────────────────────────────────────────────────
-  // /donate-bulan  (owner only)
-  // ────────────────────────────────────────────────────────
-  if (commandName === "donate-bulan") {
-    if (user.id !== guild?.ownerId) {
-      return interaction.reply({ content: "❌ Owner only!", ephemeral: true });
-    }
-
-    const bulan = interaction.options.getString("bulan");
-    donate.setMonth(bulan);
-    return interaction.reply({
-      content: `✅ Bulan donasi diset ke **${bulan}**.`,
+      content: `✅ Data donatur bulan **${getMonthLabel()}** berhasil di-reset.`,
       ephemeral: true
     });
   }
 });
 
-// ===== VOICE TRACKING (setInterval per 1 menit) =====
+// ===== VOICE TRACKING =====
 setInterval(() => {
   client.guilds.cache.forEach(guild => {
     guild.channels.cache
