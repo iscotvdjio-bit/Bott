@@ -23,21 +23,18 @@ const db = {
     const data = load();
     return data[userId]?.[key] ?? null;
   },
-
   set(userId, key, value) {
     const data = load();
     if (!data[userId]) data[userId] = {};
     data[userId][key] = value;
     save(data);
   },
-
   add(userId, key, amount) {
     const data = load();
     if (!data[userId]) data[userId] = {};
     data[userId][key] = (data[userId][key] || 0) + amount;
     save(data);
   },
-
   all() {
     return load();
   }
