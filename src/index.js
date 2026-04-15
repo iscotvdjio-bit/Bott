@@ -10,6 +10,8 @@ const {
 
 const db     = require("./database");
 const donate = require("./donate");
+const { buildDonateImage, formatRp } = require("./donate");
+const { AttachmentBuilder } = require("discord.js");
 
 const dmQueue = [];
 const schedule = [];
@@ -424,33 +426,75 @@ ${voiceTop.join("\n") || "Belum ada data"}
       ephemeral: true
     });
   }
+ 
+// ────────────────────────────────────────────────────────
+// /donate-top
+// ────────────────────────────────────────────────────────
+if (commandName === "donate-top") {
+  const top    = donate.getTop(10);
+  const month  = donate.getMonth();
+  const format = n => "Rp " + n.toLocaleString("id-ID").replace(/,/g, ".");
 
-  // ────────────────────────────────────────────────────────
-  // /donate-top
-  // ────────────────────────────────────────────────────────
-  if (commandName === "donate-top") {
-    const top    = donate.getTop(10);
-    const month  = donate.getMonth();
-    const format = n => "Rp " + n.toLocaleString("id-ID").replace(/,/g, ".");
+  const rankEmoji = i => {
+    const medals = ["🥇", "🥈", "🥉"];
+    const boxes  = ["4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+    return i < 3 ? medals[i] : boxes[i - 3];
+  };
 
-    const rankEmoji = i => {
-      const medals = ["🥇", "🥈", "🥉"];
-      const boxes  = ["4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
-      return i < 3 ? medals[i] : boxes[i - 3];
-    };
+  if (top.length === 0) {
+    return interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#67f7da")
+          .setTitle("TOP DONATUR SERVER")
+          .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
+          .setDescription(
+            `<:emoji_4:1493617126492344402> **Month : ${month}**\n\n` +
+            `*Belum ada data donatur.*\n\n` +
+            `Gunakan \`/donate-add\` untuk menambahkan data.`
+          )
+      ]
+    });
+  }
 
-    if (top.length === 0) {
-      return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("#67f7da")
-            .setTitle("TOP DONATUR SERVER")
-            .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
-            .setDescription(`<:emoji_4:1493617126492344402> **Month : ${month}**\n\n*Belum ada data donatur.*\n\nGunakan \`/donate-add\` untuk menambahkan data.`)
-        ]
-      });
-    }
+  // Defer dulu karena generate gambar butuh waktu
+  await interaction.deferReply();
 
+  // Siapkan data donor: perlu avatarURL per user
+  const donorData = [];
+  for (const d of top) {
+    let avatarURL = "https://cdn.discordapp.com/embed/avatars/0.png"; // default
+    try {
+      // Coba fetch user Discord jika ada userId tersimpan
+      if (d.userId) {
+        let u = client.users.cache.get(d.userId);
+        if (!u) u = await client.users.fetch(d.userId).catch(() => null);
+        if (u) avatarURL = u.displayAvatarURL({ extension: "png", forceStatic: true, size: 128 });
+      }
+    } catch {}
+
+    donorData.push({
+      username:  d.name,
+      avatarURL: avatarURL,
+      amount:    d.total
+    });
+  }
+
+  // Ambil icon server
+  const guildIcon = guild?.iconURL({ extension: "png", size: 256 })
+    ?? "https://cdn.discordapp.com/embed/avatars/0.png";
+
+  try {
+    // Generate gambar canvas
+    const imgBuf = await buildDonateImage(donorData, guildIcon, month);
+    const attach = new AttachmentBuilder(imgBuf, { name: "top-donatur.png" });
+
+    return interaction.editReply({ files: [attach] });
+
+  } catch (err) {
+    console.error("donate-top image error:", err);
+
+    // Fallback embed teks jika canvas gagal (misal node-canvas belum terinstall)
     const list = top.map((d, i) =>
       `${rankEmoji(i)} **${d.name}** \u2003${format(d.total)}`
     ).join("\n");
@@ -459,7 +503,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
       ? "\n\n📡 *Data dari Saweria & Sociabuzz*"
       : "\n\n📝 *Data dikelola manual oleh owner*";
 
-    return interaction.reply({
+    return interaction.editReply({
       embeds: [
         new EmbedBuilder()
           .setColor("#67f7da")
@@ -477,6 +521,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
       ]
     });
   }
+}
 
   // ────────────────────────────────────────────────────────
   // /donate-add  (owner only)
