@@ -1,8 +1,10 @@
 {
-  "name": "discord-bot",
+  "name": "@workspace/discord-bot",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "start": "node src/index.js"
+    "dev": "node src/index.js",
+    "deploy": "node src/deploy-commands.js"
   },
   "dependencies": {
     "discord.js": "^14.16.3",
