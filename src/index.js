@@ -445,6 +445,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
           new EmbedBuilder()
             .setColor("#67f7da")
             .setTitle("TOP DONATUR SERVER")
+            .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
             .setDescription(`<:emoji_4:1493617126492344402> **Month : ${month}**\n\n*Belum ada data donatur.*\n\nGunakan \`/donate-add\` untuk menambahkan data.`)
         ]
       });
