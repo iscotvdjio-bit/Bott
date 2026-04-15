@@ -1,4 +1,4 @@
-require("dotenv").config();
+krequire("dotenv").config();
 const {
   Client,
   GatewayIntentBits,
