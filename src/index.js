@@ -11,7 +11,6 @@ const {
 
 const db = require("./database");
 const { buildDonateImage, formatRp } = require("./donate");
-const { AttachmentBuilder } = require("discord.js");
 
 const dmQueue = [];
 const schedule = [];
