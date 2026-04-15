@@ -445,7 +445,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
           new EmbedBuilder()
             .setColor("#67f7da")
             .setTitle("TOP DONATUR SERVER")
-            .setDescription(`📅 **Month : ${month}**\n\n*Belum ada data donatur.*\n\nGunakan \`/donate-add\` untuk menambahkan data.`)
+            .setDescription(`<:emoji_4:1493617126492344402> **Month : ${month}**\n\n*Belum ada data donatur.*\n\nGunakan \`/donate-add\` untuk menambahkan data.`)
         ]
       });
     }
@@ -465,7 +465,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
           .setTitle("🏆 TOP DONATUR SERVER")
           .setThumbnail(guild?.iconURL({ dynamic: true }) ?? null)
           .setDescription(
-            `📅 **Month : ${month}**\n` +
+            `<:emoji_4:1493617126492344402> **Month : ${month}**\n` +
             `${"━".repeat(28)}\n\n` +
             list +
             `\n\n${"━".repeat(28)}` +
