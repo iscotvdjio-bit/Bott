@@ -455,7 +455,7 @@ ${voiceTop.join("\n") || "Belum ada data"}
     ).join("\n");
 
     const sourceNote = top.some(d => d.source !== "manual")
-      ? "\n\n📡 *Data dari Saweria & Sociabuzz*"
+      ? "\n\n📡 *Data dari <:Saweria:1484971395812425848>Saweria & <:SociaBuzz:1484971439843967170>Sociabuzz*"
       : "\n\n📝 *Data dikelola manual oleh owner*";
 
     return interaction.reply({
