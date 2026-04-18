@@ -1,11 +1,12 @@
 <h1 align="center">💎 ViBE Point Bot</h1><p align="center">
   Advanced Economy • Ranking • Donation System for Discord
 </p><p align="center">
-  <img src="https://img.shields.io/github/stars/USERNAME/REPO?style=for-the-badge">
-  <img src="https://img.shields.io/github/forks/USERNAME/REPO?style=for-the-badge">
-  <img src="https://img.shields.io/github/license/USERNAME/REPO?style=for-the-badge">
-  <img src="https://img.shields.io/badge/version-2.0-purple?style=for-the-badge">
-</p>---
+  <p align="center">
+  <img src="https://img.shields.io/badge/ViBE-PROJECT-8A2BE2?style=for-the-badge">
+  <img src="https://img.shields.io/badge/STATUS-ACTIVE-00C853?style=for-the-badge">
+  <img src="https://img.shields.io/badge/BUILD-STABLE-2962FF?style=for-the-badge">
+  <img src="https://img.shields.io/badge/VERSION-2.0-9C27B0?style=for-the-badge">
+</p>
 
 ✨ About
 
@@ -32,7 +33,7 @@ Dirancang untuk membuat server kamu lebih aktif, kompetitif, dan terlihat premiu
 
 - Chat → dapat point
 - Donate → boost rank
-- Top leaderboard → kompetisi
+- Leaderboard → kompetisi
 
 ---
 
@@ -49,8 +50,8 @@ Command| Description
 
 ⚙️ Installation
 
-git clone https://github.com/USERNAME/REPO
-cd REPO
+git clone https://github.com/iscvtdjio-bit/Bott
+cd Bott
 npm install
 node index.js
 
@@ -81,12 +82,6 @@ Rank| Points
 
 ---
 
-📷 Preview
-
-<p align="center">
-  <img src="https://via.placeholder.com/800x300" alt="preview">
-</p>---
-
 🚀 Roadmap
 
 - [ ] Daily reward system
@@ -104,7 +99,7 @@ Rank| Points
 
 👑 Credits
 
-Developed by ViBE Team
+Developed by ViBETeam
 
 ---
 
